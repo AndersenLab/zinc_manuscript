@@ -1,0 +1,1496 @@
+---
+output: pdf_document
+geometry: margin=1in
+mainfont: Times New Roman
+---
+
+```{r setup, include=FALSE, warning=F, message=F, echo=F,comment="K",results='hide'}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, results = "asis")
+
+library(tidyverse)
+library(linkagemapping)
+
+###############################
+# IMPORTANT!!!!!
+# Set working directory
+setwd("~/Dropbox/AndersenLab/LabFolders/Katie/git/zinc_manuscript/")
+###############################
+
+##########################################
+#           FUNCTIONS                    #
+##########################################
+
+load("data/extra_data/gene_annotations.Rda")
+load("data/extra_data/FileS9_eqtlmap.Rda")
+load("data/extra_data/eqtl_probes.Rda")
+load("data/extra_data/FileS8_eqtlpheno.Rda")
+
+# linkage mapping function 
+plot_lods <- function(map, tsize = 12) {
+    map1 <- map %>% 
+        dplyr::group_by(marker, condtrt) %>% 
+        dplyr::filter(lod == max(lod))
+    cis <- map %>% 
+        dplyr::group_by(marker, condtrt) %>% 
+        dplyr::mutate(maxlod = max(lod)) %>%
+        dplyr::group_by(iteration, condtrt) %>% 
+        dplyr::filter(!is.na(var_exp)) %>%
+        dplyr::do(head(., n = 1))
+    
+    totalmap <- NULL
+    if(nrow(cis) > 0) {
+        for(i in unique(cis$condtrt)) {
+            drugci <- cis %>%
+                dplyr::filter(condtrt == i)
+            drugmap <- map1 %>%
+                dplyr::filter(condtrt == i)
+            map2 <- linkagemapping:::cidefiner(drugci, drugmap)
+            totalmap <- rbind(totalmap, map2)
+        }
+        
+        totalmap$condtrt <- gsub("_", "\n", totalmap$condtrt)
+        cis$condtrt <- gsub("_", "\n", cis$condtrt)
+        
+        ggplot2::ggplot(totalmap) + 
+            ggplot2::aes(x = pos/1e+06,y = lod) + 
+            ggplot2::geom_ribbon(ggplot2::aes(x = pos/1e+06,ymin = 0, ymax = ci_lod), fill = "skyblue", alpha = 0.5) +
+            ggplot2::geom_point(data = cis, ggplot2::aes(x = pos/1e+06,y = (1.05 * maxlod)), fill = "red", shape = 25,
+                                size = tsize/7, show.legend = FALSE, color = "red") + 
+            ggplot2::geom_text(data = cis, ggplot2::aes(x = pos/1e+06, y = (1.2 * maxlod), label = paste0(100 *round(var_exp, digits = 3), "%")),
+                               size = tsize/5, colour = "black", hjust = "inward") +
+            # ggrepel::geom_text_repel(data = cis, ggplot2::aes(x = pos/1e+06, y = (1.5 * maxlod), label = paste0(100 *round(var_exp, digits = 3), "%")), 
+            #                    size = tsize/5, colour = "black") + 
+            ggplot2::geom_line(size = tsize/25, alpha = 0.85) +
+            ggplot2::facet_grid(~ chr, scales = "free", space = "free_x") +
+            ggplot2::labs(x = "Genomic position (Mb)", y = "LOD") +
+            ggplot2::scale_colour_discrete(name = "Mapping\nIteration") +
+            # ggplot2::scale_x_continuous(expand = c(0,0)) + 
+            # ggplot2::scale_y_continuous(expand = expand_scale(mult=c(0,0.1))) +
+            ggplot2::theme_bw(tsize) +
+            ggplot2::theme(
+                axis.text = ggplot2::element_text(color = "black", face = "bold"),
+                axis.title = ggplot2::element_text(face = "bold", color = "black"),
+                strip.text = ggplot2::element_text(face = "bold", color = "black"),
+                plot.title = ggplot2::element_blank(),
+                panel.grid = ggplot2::element_blank(),
+                panel.background = ggplot2::element_rect(color = NA, size = 0.6))
+    } else {
+        totalmap <- map1
+        totalmap$condtrt <- gsub("_", "\n", totalmap$condtrt)
+        
+        ggplot2::ggplot(totalmap) + 
+            ggplot2::aes(x = pos/1e+06,y = lod) + 
+            ggplot2::geom_line(size = tsize/25, alpha = 0.85) +
+            ggplot2::facet_grid( ~ chr, scales = "free", space = "free_x") +
+            ggplot2::labs(x = "Genomic position (Mb)", y = "LOD") +
+            ggplot2::theme_bw(tsize) +
+            ggplot2::theme(
+                axis.text.x = ggplot2::element_text(color = "black", face = "bold"),
+                axis.text.y = ggplot2::element_text(face = "bold", color = "black"),
+                axis.title.x = ggplot2::element_text(face = "bold", color = "black"),
+                axis.title.y = ggplot2::element_text(face = "bold", color = "black"),
+                strip.text.x = ggplot2::element_text(face = "bold", color = "black"),
+                strip.text.y = ggplot2::element_text(face = "bold", color = "black"),
+                plot.title = ggplot2::element_blank(),
+                panel.grid = ggplot2::element_blank(),
+                panel.background = ggplot2::element_rect(color = NA, size = 0.6))
+    }
+}
+
+# function for PxG 
+plot_pxg <- function(cross, map, tsize = 12, yaxis = "Relative animal length") {
+    
+    # get unique QTL peaks
+    peaks <- map %>% 
+        dplyr::group_by(iteration, condition) %>% 
+        dplyr::filter(!is.na(var_exp)) %>% 
+        dplyr::do(head(., n = 1))
+    
+    # clean the markers and column names
+    uniquemarkers <- gsub("-", "\\.", unique(peaks$marker))
+    colnames(cross$pheno) <- gsub("-", "\\.", colnames(cross$pheno))
+    colnames(cross$pheno) <- stringr::str_replace(colnames(cross$pheno), "\\.", "_")
+    
+    # get only the traits of interest
+    pheno <- cross$pheno %>% 
+        dplyr::select(dplyr::one_of(map$condtrt))
+    
+    # get the genotype for the RIAILs and add to pheno
+    geno <- data.frame(linkagemapping:::extract_genotype(cross)) %>% 
+        dplyr::select(which(colnames(.) %in% uniquemarkers)) %>% 
+        data.frame(., pheno)
+    
+    # reorder data and change -1 and 1 to N2 and CB and plot!
+    df <- geno %>%
+        tidyr::gather(marker, genotype, -dplyr::one_of(map$condtrt)) %>%
+        dplyr::mutate(genotype = dplyr::case_when(genotype == -1 ~ "N2",
+                                                  genotype == 1 ~ "CB4856",
+                                                  TRUE ~ "NA")) %>%
+        tidyr::gather(trait, phenotype, dplyr::one_of(map$condtrt)) %>%
+        dplyr::mutate(genotype = factor(genotype, levels = c("N2", "CB4856"), labels= c("N2", "CB4856"))) %>%
+        dplyr::left_join(peaks, by = c("marker", "trait" = "condtrt")) %>%
+        tidyr::drop_na(lod) %>%
+        dplyr::mutate(marker = stringr::str_replace(marker, "_", ":"),
+                      trait = stringr::str_split_fixed(trait, "_", 2)[,2],
+                      pos = as.numeric(stringr::str_split_fixed(marker, ":", 2)[,2])) %>%
+        dplyr::arrange(chr, pos) %>%
+        tidyr::drop_na(genotype)
+    df %>%
+        ggplot2::ggplot(.) + 
+        ggplot2::aes(x = genotype, y = phenotype) +
+        ggplot2::geom_jitter(width = 0.1, size = 0.07, alpha = 0.5) + 
+        ggplot2::geom_boxplot(ggplot2::aes(fill = genotype, alpha = 0.5), size = 0.2, outlier.shape = NA) + 
+        ggplot2::scale_fill_manual(values = c(`N2` = "orange", `CB4856` = "blue")) + 
+        ggplot2::facet_grid(~factor(marker, unique(df$marker)), scales = "free") + 
+        ggplot2::theme_bw(tsize) + 
+        ggplot2::theme(axis.text.x = ggplot2::element_text(face = "bold", color = "black"), 
+                       axis.text.y = ggplot2::element_text(face = "bold", color = "black"), 
+                       axis.title.x = ggplot2::element_text(face = "bold", color = "black", vjust = -0.3),
+                       axis.title.y = ggplot2::element_text(face = "bold", color = "black"), 
+                       strip.text.x = ggplot2::element_text(face = "bold", color = "black"),
+                       strip.text.y = ggplot2::element_text(face = "bold", color = "black"),
+                       # axis.title.x = element_blank(),
+                       plot.title = ggplot2::element_blank(), 
+                       legend.position = "none", 
+                       panel.grid = element_blank(),
+                       panel.background = ggplot2::element_rect(color = NA, size = 0.6)) +
+        ggplot2::labs(x = "Genotype at QTL", y = yaxis)
+}
+
+# plot NIL pheno and geno with stats
+plot_nil <- function(phenodf, genodf, statdf, strains, chr, tsize = 12, ylab = "Animal length") {
+    
+    # plot phenotype
+    pheno <- phenodf %>%
+        dplyr::group_by(strain, condition) %>%
+        dplyr::mutate(phen = max(phenotype) + 0.1) %>%
+        dplyr::ungroup() %>%
+        dplyr::full_join(statdf, by = c("strain", "condition", "trait")) %>%
+        dplyr::mutate(strain = factor(strain, 
+                                      levels = rev(strains))) %>%
+        dplyr::filter(!is.na(strain),
+                      strain %in% strains) %>%
+        ggplot(.) +
+        aes(x = strain, y = phenotype, fill = strain_fill) +
+        geom_jitter(width = 0.1, size = 0.05) +
+        geom_boxplot(outlier.color = NA, alpha = 0.5, size = 0.2) +
+        ggplot2::geom_text(aes(label = sig, y = phen, color = groups), size = tsize/4, angle = -90) +
+        scale_fill_manual(values = c("N2" = "orange", "CB" = "blue", "NIL" = "grey")) +
+        scale_color_manual(values = c("N2" = "orange", "CB" = "blue")) +
+        theme_bw(tsize) +
+        theme(axis.text.x = element_text(face="bold", color="black"),
+              axis.title.x = element_text(face="bold", color="black"),
+              axis.text.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              strip.text = element_text(face = "bold", color = "black"),
+              legend.position = "none",
+              panel.grid.minor = element_blank(),
+              panel.grid.major = element_blank()) +
+        coord_flip() +
+        labs(x = " ", y = ylab)  +
+        facet_grid(~condition)
+    
+    # plot chrV genotype
+    chrgeno <- genodf %>%
+        dplyr::filter(chrom == chr,
+                      sample %in% strainset) %>%
+        dplyr::mutate(chrom = paste0("chr", chr),
+                      sample = factor(sample, levels = strainset)) %>%
+        dplyr::distinct() %>%
+        ggplot(.)+
+        geom_segment(aes(x = start/1e6, y = sample, xend = end/1e6, yend = sample, color = gt_name, size = 2), alpha = 0.7)+
+        facet_grid(~chrom, scales = "free",  space = "free")+
+        scale_color_manual(values=c("N2"="orange","CB4856"="blue"))+
+        theme_bw(tsize) +
+        theme(axis.text.x = element_text(face="bold", color="black"),
+              axis.text.y = element_text(face="bold", color="black"),
+              axis.ticks.y = element_blank(),
+              # axis.text.y = element_blank(),
+              axis.title.x = element_text(face="bold", color="black"),
+              axis.title.y = element_text(face="bold", color="black"),
+              strip.text = element_text(face = "bold", color = "black"),
+              plot.title = element_text(face="bold"),
+              legend.position = "none",
+              panel.grid.minor = element_blank(),
+              panel.grid.major = element_blank())+
+        labs(x = "Genomic position (Mb)", y = "") 
+    
+    # plot genome background
+    back <- genodf %>%
+        dplyr::filter(sample %in% strainset,
+                      chrom == ifelse(chr == "III", "II", "III")) %>%
+        dplyr::mutate(bp = end - start) %>%
+        dplyr::group_by(sample, gt_name) %>%
+        dplyr::summarize(max = sum(bp)) %>%
+        dplyr::arrange(desc(max)) %>%
+        dplyr::filter(max == first(max)) %>%
+        dplyr::mutate(start = 0,
+                      end = 15e6,
+                      chr = "Genome")  %>%
+        dplyr::ungroup() %>%
+        dplyr::mutate(sample = factor(sample, levels = strainset)) %>%
+        ggplot(.)+
+        geom_segment(aes(x = start/1e6, y = sample, xend = end/1e6, yend = sample, color = gt_name, size = 2), alpha = 0.7)+
+        facet_grid(~chr, scales = "free",  space = "free")+
+        scale_color_manual(values=c("N2"="orange","CB4856"="blue"))+
+        theme_bw(tsize) +
+        theme(axis.text = element_blank(),
+              axis.title = element_blank(),
+              legend.position = "none",
+              axis.ticks = element_blank(),
+              panel.grid = element_blank(),
+              strip.text.x = element_text(face = "bold", color = "black"),
+              strip.text.y = element_blank())+
+        labs(x = "Genomic position (Mb)", y = "")
+    
+    # return objects
+    return(list(chrgeno, back, pheno))
+}
+
+# Look for genes in interval
+query_genes <- function(region, GO = NULL, strain = "CB4856") {
+    
+    # filter eqtl to > 5% VE
+    eqtlmap2 <- eqtlmap %>%
+        dplyr::filter(var_exp >= 0.05)
+    
+    # how many genes are in the interval?
+    all_genes <- cegwas2::query_vcf(region, impact = c("LOW", "MODERATE", "HIGH", "MODIFIER"), samples = strain)
+    print(glue::glue("There are {length(unique(all_genes$gene_id))} genes in the interval {region}"))
+    
+    # how many eQTL map to this region?
+    chrom <- stringr::str_split_fixed(region, ":", 2)[,1]
+    left_pos <- as.numeric(stringr::str_split_fixed(stringr::str_split_fixed(region, ":", 2)[,2], "-", 2)[,1])
+    right_pos <- as.numeric(stringr::str_split_fixed(stringr::str_split_fixed(region, ":", 2)[,2], "-", 2)[,2])
+    
+    all_eQTL <- eqtlmap2 %>%
+        dplyr::filter(chr == chrom,
+                      ci_l_pos < right_pos,
+                      ci_r_pos > left_pos)
+    print(glue::glue("There are {nrow(all_eQTL)} eQTL ({length(unique(all_eQTL$trait))} traits) that map to {region}"))
+    
+    # all eQTL probes
+    all_eQTL_probes <- eqtl_probes %>%
+        dplyr::filter(probe %in% all_eQTL$trait) %>%
+        dplyr::left_join(gene_annotations, by = "gene_id")
+    
+    # which of the eQTL are overlapping with genes in interval?
+    eQTL_outside_CI <- all_eQTL_probes %>%
+        dplyr::filter(!wbgene %in% all_genes$gene_id)
+    print(glue::glue("There are {nrow(all_eQTL)-length(unique(eQTL_outside_CI$wbgene))} genes in the region with an eQTL and {length(unique(eQTL_outside_CI$wbgene))} genes outside the region with an eQTL"))
+    
+    # Total genes of interest:
+    print(glue::glue("There are {length(unique(all_genes$gene_id)) + length(unique(eQTL_outside_CI$wbgene))} total genes of interest."))
+    
+    # how many of the genes in interval have variation?
+    vars <- all_genes %>%
+        dplyr::mutate(GT = ifelse(a1 == REF, "ref", "alt")) %>%
+        dplyr::filter(GT == "alt")
+    
+    # genes with protein coding vars
+    proteincode <- vars %>%
+        dplyr::filter(impact %in% c("MODERATE", "HIGH"))
+    print(glue::glue("There are {length(unique(vars$gene_id))}/{length(unique(all_genes$gene_id))} genes in interval with genetic variation, {length(unique(proteincode$gene_id))}/{length(unique(vars$gene_id))} have protein-coding variation"))
+    
+    # should I look at GO annotations?
+    if(!is.null(GO)) {
+        # total genes with GO annotations
+        go_genes <- gene_annotations %>%
+            dplyr::filter(wbgene %in% c(all_genes$gene_id, eQTL_outside_CI$wbgene)) %>%
+            dplyr::filter_all(any_vars(stringr::str_detect(., pattern = GO)))
+        print(glue::glue("There are {length(unique(go_genes$wbgene))}/{length(unique(all_genes$gene_id)) + length(unique(eQTL_outside_CI$wbgene))} genes with {GO} annotation"))
+        
+        # genes with GO annotations and variation
+        go_var <- gene_annotations %>%
+            dplyr::filter(wbgene %in% vars$gene_id) %>%
+            dplyr::filter_all(any_vars(stringr::str_detect(., pattern = GO)))
+        print(glue::glue("There are {length(unique(go_var$wbgene))}/{length(unique(go_genes$wbgene))} genes with {GO} annotation AND genetic variation"))
+        
+        # genes with GO annotation and protein-coding variation
+        go_pcvar <- gene_annotations %>%
+            dplyr::filter(wbgene %in% proteincode$gene_id) %>%
+            dplyr::filter_all(any_vars(stringr::str_detect(., pattern = GO)))
+        print(glue::glue("There are {length(unique(go_pcvar$wbgene))}/{length(unique(go_genes$wbgene))} genes with {GO} annotation AND protein-coding genetic variation"))
+        
+        # genes with GO annotation and eQTL
+        go_eqtl <- gene_annotations %>%
+            dplyr::filter(wbgene %in% all_eQTL_probes$wbgene) %>%
+            dplyr::filter_all(any_vars(stringr::str_detect(., pattern = GO)))
+        print(glue::glue("There are {length(unique(go_eqtl$wbgene))}/{length(unique(go_genes$wbgene))} genes with {GO} annotation AND eQTL"))
+        
+        # return final dataframe with all info (might be off, only has 133 instead of 134?)
+        total_genes <- gene_annotations %>%
+            dplyr::filter(wbgene %in% c(all_genes$gene_id, eQTL_outside_CI$wbgene)) %>%
+            dplyr::mutate(inside_CI = ifelse(wbgene %in% all_genes$gene_id, T, F),
+                          eqtl = ifelse(wbgene %in% all_eQTL_probes$wbgene, T, F),
+                          vars = ifelse(wbgene %in% vars$gene_id, T, F),
+                          pc_vars = ifelse(wbgene %in% proteincode$gene_id, T, F),
+                          go_annotation = ifelse(wbgene %in% go_genes$wbgene, T, F))
+    } else {
+        
+        # return final dataframe with all info (might be off, only has 133 instead of 134?)
+        total_genes <- gene_annotations %>%
+            dplyr::filter(wbgene %in% c(all_genes$gene_id, eQTL_outside_CI$wbgene)) %>%
+            dplyr::mutate(inside_CI = ifelse(wbgene %in% all_genes$gene_id, T, F),
+                          eqtl = ifelse(wbgene %in% all_eQTL_probes$wbgene, T, F),
+                          vars = ifelse(wbgene %in% vars$gene_id, T, F),
+                          pc_vars = ifelse(wbgene %in% proteincode$gene_id, T, F),
+                          go_annotation = NA)
+    }
+    
+    return(total_genes)
+}    
+
+
+```
+
+```{r figure_s1, fig.height = 6, fig.width = 6}
+
+##########################################
+#           Figure S1                    #
+#            Dose V2                     #
+##########################################
+
+# load file s1
+dosepruned <- read.csv("data/S1_File.csv")
+
+# adjust for differences in control with subtraction
+dosepruned_sub <- NULL
+for(t in c("median.TOF", "median.norm.EXT", "norm.n", "median.EXT")) {
+    dosepruned2 <- dosepruned %>%
+        dplyr::filter(trait == t) 
+    
+    # get average control phenotype for each strain
+    dosepruned3 <- dosepruned2 %>%
+        dplyr::group_by(strain, dose, trait) %>%
+        dplyr::filter(., dose == 0) %>%
+        dplyr::mutate(mean_ctrl = mean(phenotype)) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(condition, strain, mean_ctrl) %>%
+        dplyr::full_join(dosepruned2, by = c("condition", "strain")) %>%
+        dplyr::distinct() %>%
+        dplyr::mutate(newpheno = phenotype - mean_ctrl)
+    
+    # add to final df
+    dosepruned_sub <- rbind(dosepruned_sub, dosepruned3)
+    
+}
+
+# plot doses
+dosepruned_sub %>%
+    dplyr::mutate(choose = ifelse(dose == 500, "*", NA)) %>%
+    dplyr::group_by(condition, trait, dose) %>%
+    dplyr::mutate(phen = max(newpheno, na.rm = T)) %>%
+    dplyr::group_by(condition, trait, dose, strain) %>%
+    dplyr::mutate(avg = mean(newpheno, na.rm = T),
+                  sd = sd(newpheno, na.rm = T)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(trait2 = dplyr::case_when(trait == "norm.n" ~ "Brood size",
+                                           trait == "median.TOF" ~ "Length",
+                                           trait == "median.norm.EXT" ~ "Normalized optical density",
+                                           trait == "median.EXT" ~ "Optical density")) %>%
+    dplyr::mutate(dose = as.numeric(dose)) %>%
+    tidyr::drop_na(condition) %>%
+    dplyr::arrange(dose) %>%
+    dplyr::distinct(condition, trait, dose, strain, .keep_all = T) %>%
+    ggplot2::ggplot(.) +
+    ggplot2::aes(x = dose, color = strain, group = interaction(strain, dose)) +
+    ggplot2::geom_point(aes(y = avg)) +
+    ggplot2::geom_errorbar(aes(x = dose, ymin = avg - sd, ymax = avg + sd), width = 15) + # why is width so large? weird...
+    ggplot2::geom_line(aes(y = avg, group = strain)) +
+    ggplot2::geom_text(aes(y = phen, label = choose), color = "red", size = 6) +
+    ggplot2::theme_bw(8) +
+    ggplot2::scale_x_continuous(limits = c(0, 1020),
+                                breaks = unique(dosepruned_sub$dose),
+                                expand=expand_scale(mult=c(0,0))) +
+    ggplot2::theme(panel.grid = element_blank(),
+                   strip.text = element_text(face = "bold"),
+                   axis.text.x = element_text(face = "bold", color = "black"),
+                   axis.text.y = element_text(face = "bold", color = "black"),
+                   axis.title = element_text(face = "bold", color = "black"),
+                   legend.position = "bottom",
+                   legend.text = element_text(face = "bold"),
+                   legend.title = element_text(face = "bold")) +
+    ggplot2::labs(x = "Dose (µM)", y = "Relative Phenotype") +
+    ggplot2::scale_color_manual(values = c("N2" = "orange", "CB4856" = "blue",
+                                           "DL238" = "green", "JU258" = "purple"),
+                                name = "Strain") +
+    facet_wrap(factor(trait2,
+                      levels = c("Brood size", "Length", "Optical density", "Normalized optical density")) + trait ~., 
+               scales = "free")
+
+# save
+# ggsave(glue::glue("{wd}/figures/FigS1_dose.png"), height = 6, width = 6)
+
+
+```
+
+**S1 Fig. Dose response with four divergent wild isolates.** Results from the zinc dose response HTA for brood size (norm.n), animal length (median.TOF), animal optical density (median.EXT), and normalized optical density (median.norm.EXT). For each trait, drug concentration (µM) (x-axis) is plotted against phenotype subtracted from control (y-axis), colored by strain (CB4856: blue, DL238: green, JU258: purple, N2: orange). A red asterisk indicates the dose selected for linkage mapping analysis.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s2, fig.height = 8, fig.width = 7.5}
+
+##########################################
+#           Figure S2                    #
+#            Linkage                     #
+##########################################
+
+riailpheno <- read.csv("data/S3_File.csv")
+linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+zincmap <- read.csv("data/S4_File.csv")
+
+tsize <- 12
+
+i <- 1
+plot_list <- list()
+for(t in c("median.TOF", "median.EXT", "median.norm.EXT", "norm.n")){
+    
+    ### plot riail phenos
+    pheno <- riailpheno %>%
+        dplyr::filter(set == 2 | is.na(set), trait == t) %>%
+        dplyr::mutate(strain_fill = dplyr::case_when(strain == "N2" ~ "n2",
+                                                     strain == "CB4856" ~ "cb",
+                                                     TRUE ~ "RIL")) %>%
+        dplyr::group_by(strain, trait) %>%
+        dplyr::mutate(avg_phen = mean(phenotype, na.rm = T)) %>%
+        dplyr::distinct(strain, trait, .keep_all = T) %>%
+        dplyr::ungroup() %>%
+        dplyr::mutate(norm_pheno = ((avg_phen - min(avg_phen, na.rm = T)) / (max(avg_phen, na.rm = T) - min(avg_phen, na.rm = T)))) %>%
+        dplyr::arrange(norm_pheno)
+    
+    pheno$strain <- factor(pheno$strain, levels = unique(pheno$strain))
+    
+    # number of strains more resistant than N2
+    n2 <- pheno %>%
+        dplyr::filter(strain == "N2") %>%
+        dplyr::pull(norm_pheno)
+    hyperres <- pheno %>%
+        dplyr::filter(norm_pheno > n2) %>%
+        dplyr::pull(strain) 
+    length(hyperres)/nrow(pheno) # 13.3%
+    
+    # number of strains more sensitive than CB
+    cb <- pheno %>%
+        dplyr::filter(strain == "CB4856") %>%
+        dplyr::pull(norm_pheno)
+    hypersen <- pheno %>%
+        dplyr::filter(norm_pheno < cb) %>%
+        dplyr::pull(strain)
+    length(hypersen)/nrow(pheno) # 20.3%
+    
+    (length(hyperres)+length(hypersen))/nrow(pheno) #33.7%
+    
+    riail <- pheno %>%
+        ggplot2::ggplot(.) +
+        ggplot2::aes(x = strain, y = norm_pheno, fill = strain_fill, color = strain_fill) +
+        ggplot2::geom_bar(stat = "identity") +
+        ggplot2::scale_fill_manual(values = c("n2" = "orange", "cb" = "blue", "RIL" = "grey")) +
+        ggplot2::scale_color_manual(values = c("n2" = "orange", "cb" = "blue", "RIL" = "grey")) +
+        theme_bw(tsize) +
+        theme(axis.ticks.x = element_blank(),
+              axis.text.x = element_blank(),
+              panel.grid = element_blank(),
+              axis.title = element_text(face = "bold", color = "black"),
+              axis.text.y = element_text(face = "bold", color = "black"),
+              legend.position = "none") +
+        labs(x = "Strain", y = "Median optical density")
+    
+    ### plot lod
+    
+    # plot LOD
+    test <- zincmap %>%
+        dplyr::mutate(condtrt = trait,
+                      trait = stringr::str_split_fixed(trait, "_", 2)[,2]) %>%
+        dplyr::filter(trait == t)
+    lod <- plot_lods(test)
+    
+    # add up variance explained
+    sum(test$var_exp, na.rm = T) # 40.5%
+    
+    peak <- test %>%
+        na.omit()
+    
+    if(nrow(peak) > 0) {
+        # relative riail pheno
+        rph <- riailpheno %>% 
+            dplyr::filter(trait == t) %>%
+            dplyr::mutate(rel_pheno = ((phenotype - min(phenotype, na.rm = T)) / (max(phenotype, na.rm = T) - min(phenotype, na.rm = T)))) %>%
+            dplyr::mutate(phenotype = rel_pheno)
+        
+        # drugcross
+        drugcross <- linkagemapping::mergepheno(N2xCB4856cross_full2, rph, set = 2)
+        
+        # plot pxg
+        pxg <- plot_pxg(drugcross, test, yaxis = t)
+        
+        # cowplot
+        print(cowplot::plot_grid(riail, lod, pxg, nrow = 3, align = "v", axis = "lr", labels = c("A", "B", "C")))
+    } else {
+        pxg <- ggplot2::ggplot() +
+            ggplot2::theme_bw() +
+            ggplot2::theme(panel.border = element_rect(color = "grey99", size = 0.0001)) + ### THIS IS RIDICULOUS
+            ggplot2::labs(x = " ", y = " ")
+        # cowplot
+        print(cowplot::plot_grid(riail, lod, pxg, nrow = 3, align = "v", axis = "lr", labels = c("A", "B", "")))
+    }
+    
+    # next plot
+    i <- i + 1
+    cat("\n\n\n")
+    cat("\n\n\\pagebreak\n") # might need fixed...
+    
+}
+
+# ggsave(plot_list[[1]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS2-1_linkage.png", width = 7.5, height = 8)
+# ggsave(plot_list[[2]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS2-2_linkage.png", width = 7.5, height = 8)
+# ggsave(plot_list[[3]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS2-3_linkage.png", width = 7.5, height = 8)
+# ggsave(plot_list[[4]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS2-4_linkage.png", width = 7.5, height = 8)
+
+
+```
+
+**S2 Fig. Linkage mapping identifies 12 QTL across three traits in response to high zinc.** **A)** Normalized residual phenotype (y-axis) of 253 RIAILs (x-axis) in response to zinc supplementation. The parental strains are colored: N2, orange; CB4856, blue. **B)** Linkage mapping results are shown. Genomic position (x-axis) is plotted against the logarithm of the odds (LOD) score (y-axis) for 13,003 genomic markers. Each significant QTL is indicated by a red triangle at the peak marker, and a blue rectangle shows the 95% confidence interval around the peak marker. The percentage of the total variance in the RIAIL population that can be explained by each QTL is shown above the QTL. **C)** For each QTL, the normalized residual phenotype (y-axis) of RIAILs split by genotype at the marker with the maximum LOD score (x-axis) are plotted as Tukey box plots. Each point corresponds to a unique recombinant strain. Strains with the N2 allele are colored orange and strains with the CB4856 allele are colored blue.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s3}
+
+##########################################
+#           Figure S3                    #
+#             scan2                      # 
+##########################################
+
+cowplot::ggdraw() +
+  cowplot::draw_image("figures/extra/FigS3_scantwo.png")
+
+# riailpheno <- read.csv("data/S3_File.csv")
+# linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+# zincmap <- read.csv("data/S4_File.csv")
+
+# # set trait
+# trt <- "median.EXT"
+# 
+# # filter for trait
+# drugtrait <- riailpheno %>%
+#     dplyr::filter(!strain %in% c("N2", "CB4856")) %>%
+#     dplyr::filter(trait == trt) %>%
+#     dplyr::select(strain, condition, trait, phenotype)
+# 
+# # merge cross object
+# drugcross <- linkagemapping::mergepheno(N2xCB4856cross_full2, drugtrait, set = 2)
+# 
+# # run scan2
+# scan2 <- qtl::scantwo(drugcross, pheno.col=3, method="mr")
+# 
+# # riail marker conversion
+# mappos <- qtl::pull.map(N2xCB4856cross_full2, as.table = TRUE) %>%
+#     dplyr::mutate(marker = rownames(.),
+#                   cM = as.character(pos)) %>%
+#     dplyr::select(-pos, -chr) %>%
+#     dplyr::distinct(cM, .keep_all = T)  %>%
+#     dplyr::mutate(pos = as.numeric(stringr::str_split_fixed(marker, "_", 2)[,2]))
+# 
+# # change markers in scan2 from cM to genomic position
+# scan2$map$pos <- mappos$pos
+
+# plot
+# png("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS3_scantwo.png")
+# plot(scan2) 
+# dev.off()
+
+```
+
+**S3 Fig. Two dimensional genome scan for median optical density (median.EXT) in zinc.** Log of the odds (LOD) scores are shown for each pairwise combination of loci, split by chromosome. The upper-left triangle contains the epistasis LOD scores and the lower-right triangle contains the LOD scores for the full model. LOD scores are colored, increasing from purple to green to yellow. The LOD scores for the epistasis model is shown on the left of the color scale and the LOD scores for the full model is shown on the right.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s4, fig.height = 3, fig.width = 5}
+
+##########################################
+#           Figure S4                    #
+#         Additive QTL                   #
+##########################################
+
+riailpheno <- read.csv("data/S3_File.csv")
+linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+zincmap <- read.csv("data/S4_File.csv")
+
+# set trait
+trt <- "median.EXT"
+
+# filter for trait
+drugtrait <- riailpheno %>%
+    dplyr::filter(!strain %in% c("N2", "CB4856")) %>%
+    dplyr::filter(trait == trt) 
+
+# merge cross object
+drugcross <- linkagemapping::mergepheno(N2xCB4856cross_full2, drugtrait, set = 2)
+
+# What markers are we interested in?
+markers <- zincmap %>%
+    na.omit() %>%
+    dplyr::filter(trait == glue::glue("zinc_{trt}"),
+                  chr %in% c("III", "V"))
+
+# filter genotype data from RIAILs for those three markers - 2 = CB, 1 = N2
+genos <- data.frame(linkagemapping::extract_genotype(N2xCB4856cross_full2)) %>%
+    dplyr::select(one_of(markers$marker)) %>%
+    dplyr::bind_cols(data.frame(drugcross$pheno)) %>%
+    dplyr::filter(set == 2) %>%
+    na.omit() %>%
+    tidyr::gather(marker, genotype, one_of(markers$marker)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(genotype = ifelse(genotype == -1, "N2", "CB4856")) %>%
+    tidyr::spread(marker, genotype) %>%
+    dplyr::rename_at(vars(contains("zinc")), ~ "pheno")
+
+# add n2 and CB phenotypes
+parents <- riailpheno %>%
+    dplyr::filter(strain %in% c("N2", "CB4856")) %>%
+    dplyr::filter(trait == trt) %>%
+    dplyr::mutate(combo = strain, pheno = phenotype)
+
+# group RIAILs by their 3-loci combination
+combos <- genos %>%
+    tidyr::unite("combo", one_of(markers$marker), sep = "", remove = FALSE) %>%
+    dplyr::group_by(combo) %>%
+    dplyr::mutate(avg_pheno = median(pheno),
+                  condition = "zinc",
+                  trait = trt,
+                  phenotype = pheno) %>%
+    tidyr::gather(QTL, gt, one_of(markers$marker)) %>%
+    dplyr::mutate(QTL = stringr::str_split_fixed(QTL, "_", 2)[,1]) %>%
+    tidyr::spread(QTL, gt) %>%
+    dplyr::arrange(desc(avg_pheno)) 
+
+combos$combo <- factor(combos$combo, levels = rev(unique(combos$combo)))
+
+
+combos %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(rel_pheno = ((phenotype - min(phenotype, na.rm = T)) / (max(phenotype, na.rm = T) - min(phenotype, na.rm = T)))) %>%
+    dplyr::mutate(phenotype = rel_pheno) %>%
+    dplyr::group_by(III, V) %>%
+    dplyr::summarise(avg_phen = mean(phenotype),
+                     sd = sd(phenotype)) %>%
+    ggplot2::ggplot(.) +
+    ggplot2::aes(x = III, 
+                 y = avg_phen, 
+                 color = V) +
+    ggplot2::geom_point(size = 5, alpha = 0.8) +
+    ggplot2::geom_errorbar(aes(x = III, ymin = avg_phen - sd, ymax = avg_phen + sd), width = 0.1, size = 0.3)+
+    ggplot2::stat_summary(geom = "line", fun = mean, aes(group = V, color = V),
+                           size = 1.5) +
+    # ggplot2::geom_boxplot(outlier.color = NA, alpha = 0.5, size = 0.3) +
+    ggplot2::theme_bw(12) +
+    # ggplot2::scale_fill_manual(values = c("CB4856" = "blue", "N2" = "orange"), name = "chrV") +
+    ggplot2::scale_color_manual(values = c("CB4856" = "blue", "N2" = "orange"), name = "chrV") +
+    ggplot2::theme(panel.grid = element_blank(),
+                   axis.title = element_text(face = "bold", color = "black"),
+                   axis.text = element_text(face = "bold", color = "black"),
+                   legend.title = element_text(face = "bold", color = "black"),
+                   legend.text = element_text(face = "bold", color = "black")) +
+    ggplot2::labs(x = "chrIII", y = "Median optical density")
+
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS4_additiveQTL2.png", width = 5, height = 3)
+
+
+```
+
+**S4 Fig. Reaction norm shows additive QTL effects between chromosome III and V.** Normalized residual median optical density in zinc (median.EXT, y-axis) of RIAILs split by genotype at the chromosome III QTL (x-axis) are plotted as the mean of the population +/- the standard deviation, colored by the genotype at the chromosome V QTL.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s5, fig.height = 8, fig.width = 7.5}
+
+##########################################
+#           Figure S5                    #
+#              NILs                      #
+##########################################
+
+trt <- "median.EXT"
+tsize <- 12
+
+NIL_pruned <- read.csv("data/S9_File.csv")
+HTA_stats <- read.csv("data/S10_File.csv")
+nilgeno <- read.csv("data/S8_File.csv")
+zincmap <- read.csv("data/S4_File.csv")
+
+NIL_pruned <- NIL_pruned %>%
+    dplyr::filter(trait == trt) %>%
+    dplyr::mutate(strain_fill = dplyr::case_when(strain %in% c("N2") ~ "N2",
+                                                 strain %in% c("CB4856") ~ "CB",
+                                                 TRUE ~ "NIL"))
+
+chrX <- NIL_pruned %>%
+    dplyr::filter(experiment == "chrX_nils")
+regX <- easysorter::regress(chrX)
+chrV <- NIL_pruned %>%
+    dplyr::filter(experiment == "chrV_nils")
+regV <- easysorter::regress(chrV)
+chrIV <- NIL_pruned %>%
+    dplyr::filter(experiment == "chrIV_nils")
+regIV <- easysorter::regress(chrIV)
+chrIII <- NIL_pruned %>%
+    dplyr::filter(experiment == "chrIII_nils")
+regIII <- easysorter::regress(chrIII)
+
+regressed <- regX %>%
+    dplyr::bind_rows(regIV, regV, regIII) %>%
+    dplyr::group_by(experiment) %>%
+    dplyr::mutate(relative_pheno = ((phenotype - min(phenotype, na.rm = T)) / (max(phenotype, na.rm = T) - min(phenotype, na.rm = T)))) %>%
+    dplyr::mutate(phenotype = relative_pheno)
+
+# strains in order
+strainset <- rev(c("N2", "CB4856", "ECA241", "ECA240", "ECA828", "ECA931", "ECA929", "ECA230", "ECA232", "ECA838", "ECA859"))
+
+# stats
+stats <- HTA_stats %>%
+    dplyr::filter(comparison %in% c("N2-ECA240", "N2-ECA931", "N2-ECA929", "ECA241-CB4856", "ECA230-CB4856", "N2-ECA232","ECA828-CB4856",
+                                    "N2-ECA838", "ECA859-CB4856"),
+                  experiment %in% c("chrV_nils", "chrIV_nils", "chrX_nils", "chrIII_nils")) %>%
+    dplyr::select(condition, trait, comparison, pval = adj.p.value) %>%
+    dplyr::mutate(strain = dplyr::case_when(grepl("CB4856", comparison) ~ stringr::str_split_fixed(comparison, "-", 2)[,1],
+                                   grepl("N2", comparison) ~ stringr::str_split_fixed(comparison, "-", 2)[,2]),
+                  groups = dplyr::case_when(grepl("CB4856", comparison) ~ "CB",
+                                            grepl("N2", comparison) ~ "N2",
+                                            TRUE ~ "NIL"),
+                  sig = dplyr::case_when(pval < 0.0001 ~ "****",
+                                         pval < 0.001 ~ "***",
+                                         pval < 0.01 ~ "**",
+                                         pval < 0.05 ~ "*",
+                                         TRUE ~ "ns"))
+
+pheno <- regressed %>%
+    dplyr::ungroup()%>%
+    dplyr::filter(trait == trt) %>%
+    dplyr::mutate(strain_fill = dplyr::case_when(strain %in% c("N2") ~ "N2",
+                                                 strain %in% c("CB4856") ~ "CB",
+                                                 TRUE ~ "NIL"),
+                  experiment = stringr::str_replace(experiment, "_nils", "")) %>%
+    dplyr::group_by(strain, condition) %>%
+    dplyr::mutate(phen = max(phenotype) + 0.2) %>%
+    dplyr::ungroup() %>%
+    dplyr::full_join(stats, by = c("strain", "condition", "trait")) %>%
+    tidyr::drop_na(experiment) %>%
+    dplyr::mutate(strain = factor(strain,
+                                  levels = strainset)) %>%
+    dplyr::filter(!is.na(strain)) %>%
+    ggplot(.) +
+    aes(x = strain, y = phenotype, fill = strain_fill) +
+    geom_jitter(width = 0.1, size = 0.05) +
+    geom_boxplot(outlier.color = NA, alpha = 0.5, size = 0.2) +
+    ggplot2::geom_text(aes(label = sig, y = phen, color = groups), size = tsize/4, angle = -90) +
+    scale_fill_manual(values = c("N2" = "orange", "CB" = "blue", "NIL" = "grey")) +
+    scale_color_manual(values = c("N2" = "orange", "CB" = "blue")) +
+    theme_bw(tsize) +
+    theme(axis.text.x = element_text(face="bold", color="black"),
+          axis.title.x = element_text(face="bold", color="black"),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          strip.text = element_text(face = "bold", color = "black"),
+          legend.position = "none",
+          panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank()) +
+    coord_flip() +
+    labs(x = " ", y = "Median optical density") +
+    facet_grid(experiment~condition, scales = "free", space = 'free')
+
+genoIII <- nil_genotypes %>%
+    dplyr::filter(sample %in% regIII$strain,
+                  chrom == "III")%>%
+    dplyr::mutate(experiment = "III")
+genoIV <- nil_genotypes %>%
+    dplyr::filter(sample %in% regIV$strain,
+                  chrom == "IV")%>%
+    dplyr::mutate(experiment = "IV")
+genoX <- nil_genotypes %>%
+    dplyr::filter(sample %in% regX$strain,
+                  chrom == "X")%>%
+    dplyr::mutate(experiment = "X")
+genoV <- nil_genotypes %>%
+    dplyr::filter(sample %in% regV$strain,
+                  chrom == "V")%>%
+    dplyr::mutate(experiment = "V")
+newgeno <- genoIV %>%
+    dplyr::bind_rows(genoX, genoV, genoIII)
+
+# get QTL positions
+peaks <- zincmap %>%
+    na.omit() %>%
+    dplyr::filter(trait == glue::glue("zinc_{trt}")) %>%
+    dplyr::mutate(experiment = "chr",
+                  chrom = chr)
+
+geno <- newgeno %>%
+    dplyr::filter(sample %in% strainset) %>%
+    dplyr::mutate(sample = factor(sample, levels = strainset),
+                  experiment = "chr") %>%
+    dplyr::distinct() %>%
+    ggplot(.)+
+    geom_segment(aes(x = start/1e6, y = sample, xend = end/1e6, yend = sample, color = gt_name, size = 2), alpha = 0.7)+
+    facet_grid(chrom~experiment, scales = "free", space = "free")+
+    scale_color_manual(values=c("N2"="orange","CB4856"="blue"))+
+    theme_bw(tsize) +
+    theme(axis.text.x = element_text(face="bold", color="black"),
+          axis.text.y = element_text(face="bold", color="black"),
+          axis.ticks.y = element_blank(),
+          # axis.text.y = element_blank(),
+          axis.title.x = element_text(face="bold", color="black"),
+          axis.title.y = element_text(face="bold", color="black"),
+          strip.text = element_text(face = "bold", color = "black"),
+          plot.title = element_text(face="bold"),
+          legend.position = "none",
+          strip.text.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank())+
+    labs(x = "Genomic position (Mb)", y = "") +
+    ggplot2::geom_vline(data = peaks, aes(xintercept = pos/1e6)) +
+    ggplot2::geom_vline(data = peaks, aes(xintercept = ci_l_pos/1e6), linetype = "dashed", alpha = 0.5) +
+    ggplot2::geom_vline(data = peaks, aes(xintercept = ci_r_pos/1e6), linetype = "dashed", alpha = 0.5)
+
+back <- nil_genotypes %>%
+    dplyr::filter(sample %in% strainset,
+                  chrom == "II") %>%
+    dplyr::mutate(bp = end - start) %>%
+    dplyr::group_by(sample, gt_name) %>%
+    dplyr::summarize(max = sum(bp)) %>%
+    dplyr::filter(max == first(max)) %>%
+    dplyr::mutate(start = 0,
+                  end = 15e6,
+                  experiment = "Genome",
+                  chr = dplyr::case_when(sample %in% genoIV$sample ~ "IV",
+                                         sample %in% genoX$sample ~ "X",
+                                         sample %in% genoV$sample ~ "V",
+                                         sample %in% genoIII$sample ~ "III"))  %>%
+    dplyr::mutate(chr = ifelse(sample %in% c("N2", "CB4856"), "IV,X,V,III", chr)) %>%
+    tidyr::separate_rows(chr, sep = ",") %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(sample = factor(sample, levels = strainset)) %>%
+    ggplot(.)+
+    geom_segment(aes(x = start/1e6, y = sample, xend = end/1e6, yend = sample, color = gt_name, size = 2), alpha = 0.7)+
+    facet_grid(chr~experiment, scales = "free",  space = "free")+
+    scale_color_manual(values=c("N2"="orange","CB4856"="blue"))+
+    theme_bw(tsize) +
+    theme(axis.text = element_blank(),
+          axis.title = element_blank(),
+          legend.position = "none",
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          strip.text.x = element_text(face = "bold", color = "black"),
+          strip.text.y = element_blank())+
+    labs(x = "Genomic position (Mb)", y = "")
+
+cowplot::plot_grid(geno, back, pheno, nrow = 1, rel_widths = c(1,0.3, 1), align = "h", axis = "bt", labels = c("A", "", "B"))
+
+# save
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS5_NILs.png", height = 8, width = 7.5)
+
+
+
+
+```
+
+**S5 Fig. Validating QTL using near-isogenic lines (NILs).** **A)** Strain genotypes are shown as colored rectangles (N2: orange, CB4856: blue) in detail for each chromosome (left) and in general for the rest of the chromosomes (right). The solid vertical line represents the peak marker of the QTL and the dashed vertical lines represent the confidence interval. **B)** Normalized residual median optical density in zinc (median.EXT, x-axis) is plotted as Tukey box plots against strain (y-axis). The parental strains N2 and CB4856 are colored orange and blue, respectively. NILs are colored grey. Statistical significance of each strain compared to its parental strain (ECA838, ECA240, ECA232, ECA931, and ECA929 to N2 and ECA859, ECA241, ECA230, and ECA828 to CB4856) is shown above each strain and colored by the parent strain it was tested against (ns = non-significant (p-value > 0.05); `*`, `**`, `***`, and `***` = significant (p-value < 0.05, 0.01, 0.001, or 0.0001, respectively).
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s6, fig.height = 4, fig.width = 4}
+
+##########################################
+#           Figure S6                    #
+#         zinc V3 dose                   #  
+##########################################
+
+doseprunedV3 <- read.csv("data/S12_File.csv")
+
+trt <- "median.EXT"    
+tsize <- 12
+
+doseprunedV3 <- doseprunedV3 %>%
+    tidyr::separate(condition, c("condition", "dose"), sep = "-")
+
+# adjust for differences in control with subtraction
+doseprunedV3 %>%
+    dplyr::group_by(strain, dose, trait) %>%
+    dplyr::filter(., dose == 0,
+                  trait == trt) %>%
+    dplyr::mutate(mean_ctrl = mean(phenotype)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(condition, strain, mean_ctrl) %>%
+    dplyr::full_join(doseprunedV3, by = c("condition", "strain")) %>%
+    dplyr::distinct() %>%
+    dplyr::filter(trait == trt) %>%
+    dplyr::mutate(newpheno = phenotype - mean_ctrl)  %>%
+    dplyr::mutate(choose = ifelse(dose == 250, "*", NA)) %>%
+    dplyr::group_by(condition, trait, dose) %>%
+    dplyr::mutate(phen = max(newpheno, na.rm = T)) %>%
+    dplyr::group_by(condition, trait, dose, strain) %>%
+    dplyr::mutate(avg = mean(newpheno, na.rm = T),
+                  sd = sd(newpheno, na.rm = T)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(trait2 = "Animal length") %>%
+    dplyr::mutate(dose = as.numeric(dose)) %>%
+    tidyr::drop_na(condition) %>%
+    dplyr::arrange(dose) %>%
+    dplyr::filter(strain %in% c("N2", "CB4856")) %>%
+    dplyr::distinct(condition, trait, dose, strain, .keep_all = T) %>%
+    ggplot2::ggplot(.) +
+    ggplot2::aes(x = dose, color = strain, group = interaction(strain, dose)) +
+    ggplot2::geom_point(aes(y = avg)) +
+    ggplot2::geom_errorbar(aes(x = dose, ymin = avg - sd, ymax = avg + sd), width = 10) + # why is width so large? weird...
+    ggplot2::geom_line(aes(y = avg, group = strain)) +
+    ggplot2::geom_text(aes(y = phen, label = choose), color = "red", size = 6) +
+    ggplot2::theme_bw(tsize) +
+    ggplot2::scale_x_continuous(limits = c(0, 780),
+                                breaks = c(0,250,500,750),
+                                expand=expand_scale(mult=c(0,0))) +
+    ggplot2::theme(panel.grid = element_blank(),
+                   strip.text = element_text(face = "bold"),
+                   axis.text.x = element_text(face = "bold", color = "black"),
+                   axis.text.y = element_text(face = "bold", color = "black"),
+                   axis.title = element_text(face = "bold", color = "black"),
+                   legend.position = "none") +
+    # ggplot2::facet_wrap(~trait2, scales = "free") +
+    ggplot2::labs(x = "Dose (µM)", y = "Median optical density") +
+    ggplot2::scale_color_manual(values = c("N2" = "orange", "CB4856" = "blue"),
+                                name = "Strain")
+
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS6_doseV3.png", height = 4, width = 4)
+
+
+```
+
+**S6 Fig. Dose response for modified HTA.** Results from the zinc dose response with the modified HTA for median optical density (median.EXT). Drug concentration (µM) (x-axis) is plotted against phenotype subtracted from control (y-axis), colored by strain (CB4856: blue, N2: orange). A red asterisk indicates the dose selected for further analysis.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s7, fig.height = 3, fig.width = 7.5}
+
+##########################################
+#           Figure S7                    #
+#       ver-2 v. sqst-5                  #
+##########################################
+
+
+trt <- "median.EXT"
+tsize <- 12
+# ver-2: WBGene00006895, probe: A_12_P104472
+# sqst-5: WBGene00269434 -- not included in our refflat file. how to get a new one?
+
+# ver2 probe position
+probe_pos <- eqtlpheno %>%
+    dplyr::filter(probe == "A_12_P104472")
+
+# III:146989-147048
+
+# plot gene model
+selection <- gene_ref_flat %>%
+    dplyr::filter(wbgene == "WBGene00006895")
+
+selection$txend <- as.numeric(selection$txend)
+selection$codingend <- as.numeric(selection$codingend)
+exonstarts <- matrix(as.numeric(unlist(strsplit(selection$exonstarts, ",")), ncol = selection$numexons))
+
+exonends <- matrix(as.numeric(unlist(strsplit(selection$exonends, ",")), ncol = selection$numexons))
+
+allexons <- data.frame("starts" = exonstarts, "ends" = exonends)
+
+# add real gene
+allexons$gene <- c(rep("sqst-5", 2), rep("ver-2", 8))
+
+intronstarts <- exonends[1:(nrow(exonends)-1)]
+
+intronends <- exonstarts[2:(nrow(exonends))]
+
+allintrons <- data.frame("starts" = intronstarts, "ends" = intronends) %>%
+    dplyr::mutate(midpoint = (starts+ends)/2)
+
+endUTR <- data.frame("x" = c(selection$codingstart, selection$codingstart, selection$txstart), "y" = c(1, -1, 0))
+
+gene_model <- ggplot2::ggplot(allexons)+
+    ggplot2::geom_segment(aes(x = txend, xend = txstart, y = 0, yend = 0), data = selection, color = "black")+
+    ggplot2::geom_rect(aes(xmin =  starts, xmax = ends, ymin = -1 , ymax = 1, fill = gene), color = "black", alpha = 0.5)+
+    ggplot2::scale_fill_manual(values = c("sqst-5" = "purple", "ver-2" = "blue"), name = "Gene") +
+    ggplot2::geom_segment(aes(x = starts, y = 1, xend = midpoint, yend = 2), data = allintrons, color = "black")+
+    ggplot2::geom_segment(aes(x = midpoint, y = 2, xend = ends, yend = 1), data = allintrons, color = "black")+
+    # ggplot2::geom_rect(aes(xmin = txend, xmax = codingend, ymin = -1, ymax = 1), data = selection, fill = utr3_color)+
+    ggplot2::geom_rect(aes(xmin = codingstart, xmax = txstart, ymin = -1, ymax = 1), data = selection, fill= "white", color = "white", lwd = 1.2)+
+    ggplot2::geom_polygon(aes(x = x, y = y), data = endUTR, fill = "gray60", color = "black")+
+    ggplot2::theme_void() +
+    ggplot2::theme(legend.position = "bottom") +
+        # ver-2 del
+    ggplot2::geom_rect(aes(xmin = 148154, xmax = 150002, ymin = -1.1, ymax = -1.3), fill = "black", color = "black", size = 0.3) +
+    # sqst-5 del
+    ggplot2::geom_rect(aes(xmin = 147000, xmax = 147655, ymin = -1.1, ymax = -1.3), fill = "black", color = "black", size = 0.3) +
+    # eQTL probe
+    ggplot2::geom_rect(aes(xmin = 146989, xmax = 147048, ymin = -1.35, ymax = -1.55), fill = "red", color = "black", size = 0.3, alpha = 0.8)
+gene_model
+
+# save
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS7_ver2.png",
+       # width = 7.5, height = 3)
+
+
+```
+
+**S7 Fig. The gene *sqst-5*, not *ver-2* has an eQTL.** Original gene model for *ver-2* is shown with colored boxes representing exons connected by lines representing introns. Exons are colored blue for the new gene model for *ver-2* and purple for *sqst-5*. The black rectangles below represent approximate locations of CRISPR-mediated deletions of *ver-2* or *sqst-5*. The location of the microarray probe is designated as a red rectangle below the plot. 
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s8, fig.height = 5, fig.width = 7.5}
+
+##########################################
+#           Figure S8                    #
+#           sqst5 HTA                    # 
+##########################################
+
+sqst5_pruned <- read.csv("data/S17_File.csv")
+HTA_stats <- read.csv("data/S10_File.csv")
+nilgeno <- read.csv("data/S8_File.csv")
+
+# plot
+trt <- "median.EXT"
+tsize <- 12
+strainset <- rev(c("N2", "CB4856", "ECA838", "ECA859", "ECA1377", "ECA1378", "ECA1379", "ECA1380")) 
+
+# regress
+regressed <- easysorter::regress(sqst5_pruned %>%
+                                     dplyr::filter(strain %in% strainset)) %>%
+    dplyr::filter(trait == trt) %>%
+    dplyr::mutate(strain_fill = dplyr::case_when(strain %in% c("N2") ~ "N2",
+                                                 strain %in% c("CB4856") ~ "CB",
+                                                 TRUE ~ "NIL"),
+                  groups = dplyr::case_when(strain %in% c("N2", "ECA838", "ECA1377", "ECA1378") ~ "N2",
+                                            strain %in% c("CB4856", "ECA1379", "ECA859", "ECA1380") ~ "CB",
+                                            TRUE ~ "NIL")) %>%
+    dplyr::mutate(relative_pheno = ((phenotype - min(phenotype, na.rm = T)) / (max(phenotype, na.rm = T) - min(phenotype, na.rm = T)))) %>%
+    dplyr::mutate(phenotype = relative_pheno)
+
+
+# stats
+stats <- HTA_stats %>%
+    dplyr::filter(comparison %in% c("N2-ECA838", "N2-ECA1377", "N2-ECA1378", "ECA859-CB4856", "ECA1379-CB4856", "ECA1380-CB4856"),
+                  experiment == "sqst5_del",
+                  trait == trt) %>%
+    dplyr::select(condition, trait, comparison, pval = adj.p.value) %>%
+    dplyr::mutate(strain = dplyr::case_when(grepl("CB4856", comparison) ~ stringr::str_split_fixed(comparison, "-", 2)[,1],
+                                            grepl("N2", comparison) ~ stringr::str_split_fixed(comparison, "-", 2)[,2],
+                                            TRUE ~ "NA"),
+                  sig = dplyr::case_when(pval < 0.0001 ~ "****",
+                                         pval < 0.001 ~ "***",
+                                         pval < 0.01 ~ "**",
+                                         pval < 0.05 ~ "*",
+                                         TRUE ~ "ns"))
+
+# add fake sqst del genotypes
+eca1377 <- nil_genotypes %>%
+    dplyr::filter(sample == "N2") %>%
+    dplyr::mutate(sample = "ECA1377")
+eca1378 <- nil_genotypes %>%
+    dplyr::filter(sample == "N2") %>%
+    dplyr::mutate(sample = "ECA1378")
+eca1379 <- nil_genotypes %>%
+    dplyr::filter(sample == "CB4856") %>%
+    dplyr::mutate(sample = "ECA1379")
+eca1380 <- nil_genotypes %>%
+    dplyr::filter(sample == "CB4856") %>%
+    dplyr::mutate(sample = "ECA1380")
+nil_genotypes <- nil_genotypes %>%
+    dplyr::bind_rows(eca1377, eca1378, eca1379, eca1380)
+
+# plot
+plots <- plot_nil(regressed, nil_genotypes, stats, rev(strainset), "III", ylab = "Median optical density")
+
+cowplot::plot_grid(plots[[1]] +
+                       geom_vline(xintercept = 0.11, linetype = "dashed") +
+                       geom_point(data = nil_genotypes %>%
+                                      dplyr::filter(sample %in% c("ECA1377", "ECA1378", "ECA1379", "ECA1380"), chrom == "III") %>%
+                                      dplyr::mutate(chrom = "chrIII"),
+                                  aes(x = 0.146, y = sample), shape = 24, color = "black", fill = "grey", size = 3), 
+                    plots[[2]], 
+                    plots[[3]], 
+                    nrow = 1, ncol = 3, rel_widths = c(3, 1, 4.5), align = "h", axis = "b", labels = c("A", "", "B"))
+
+# save plot
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS8_sqst5HTA.png", width = 7.5, height = 5)
+
+
+```
+
+**S8 Fig. Testing the role of *sqst-5* in the zinc response.** **A)** Strain genotypes are shown as colored rectangles (N2: orange, CB4856: blue) in detail for chromosome III (left) and in general for the rest of the chromosomes (right). The dashed vertical line represents the location of *sqst-5* and grey triangles represent *sqst-5* deletions. **B)** Normalized residual median optical density in zinc (median.EXT, x-axis) is plotted as Tukey box plots against strain (y-axis). Statistical significance of each strain compared to its parental strain (ECA838, ECA1377, and ECA1378 to N2 and ECA859, ECA1379, and ECA1380 to CB4856) is shown above each strain and colored by the parent strain it was tested against (ns = non-significant (p-value > 0.05); `*`, `**`, `***`, and `***` = significant (p-value < 0.05, 0.01, 0.001, or 0.0001, respectively).
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s9, fig.height = 4, fig.width = 7.5}
+
+##########################################
+#           Figure S9                    #
+#          sqst5 859 HTA                 #
+##########################################
+
+
+sqst5_NIL_pruned <- read.csv("data/S18_File.csv")
+HTA_stats <- read.csv("data/S10_File.csv")
+nilgeno <- read.csv("data/S8_File.csv")
+
+
+# plot
+trt <- "median.EXT"
+tsize <- 12
+strainset <- rev(c("N2", "CB4856", "ECA859", "ECA2517", "ECA2518"))
+
+# regress
+regressed <- easysorter::regress(sqst5_NIL_pruned %>%
+                                     dplyr::filter(strain %in% strainset)) %>%
+    dplyr::filter(trait == trt) %>%
+    dplyr::mutate(strain_fill = dplyr::case_when(strain %in% c("N2") ~ "N2",
+                                                 strain %in% c("CB4856") ~ "CB",
+                                                 TRUE ~ "NIL"),
+                  groups = dplyr::case_when(strain %in% c("CB4856", "ECA2517", "ECA859", "ECA2518") ~ "N2",
+                                            TRUE ~ "NIL"))  %>%
+    dplyr::mutate(relative_pheno = ((phenotype - min(phenotype, na.rm = T)) / (max(phenotype, na.rm = T) - min(phenotype, na.rm = T)))) %>%
+    dplyr::mutate(phenotype = relative_pheno)
+
+
+
+# stats
+stats <- HTA_stats %>%
+    dplyr::filter(comparison %in% c("ECA859-ECA2517", "ECA859-ECA2518"),
+                  experiment == "sqst5_NIL") %>%
+    dplyr::select(condition, trait, comparison, pval = adj.p.value) %>%
+    dplyr::mutate(strain = dplyr::case_when(comparison == "ECA859-ECA2517" ~ "ECA2517",
+                                            comparison == "ECA859-ECA2518" ~ "ECA2518",
+                                            TRUE ~ "NA"),
+                  sig = dplyr::case_when(pval < 0.0001 ~ "****",
+                                         pval < 0.001 ~ "***",
+                                         pval < 0.01 ~ "**",
+                                         pval < 0.05 ~ "*",
+                                         TRUE ~ "ns"))
+
+# add fake sqst del genotypes
+eca2517 <- nil_genotypes %>%
+    dplyr::filter(sample == "ECA859") %>%
+    dplyr::mutate(sample = "ECA2517")
+eca2518 <- nil_genotypes %>%
+    dplyr::filter(sample == "ECA859") %>%
+    dplyr::mutate(sample = "ECA2518")
+nil_genotypes <- nil_genotypes %>%
+    dplyr::bind_rows(eca2517, eca2518)
+
+
+# plot
+plots <- plot_nil(regressed, nil_genotypes, stats, rev(strainset), "III", ylab = "Median optical density")
+
+cowplot::plot_grid(plots[[1]] +
+                       geom_vline(xintercept = 0.11, linetype = "dashed") +
+                       geom_point(data = nil_genotypes %>%
+                                      dplyr::filter(sample %in% c("ECA2517", "ECA2518"), chrom == "III") %>%
+                                      dplyr::mutate(chrom = "chrIII"),
+                                  aes(x = 0.146, y = sample), shape = 24, color = "black", fill = "grey", size = 3), 
+                   plots[[2]], 
+                   plots[[3]], 
+                   nrow = 1, ncol = 3, rel_widths = c(3, 1, 4.5), align = "h", axis = "b", labels = c("A", "", "B"))
+
+
+# save plot
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS9_sqst5_NIL_HTA.png", width = 7.5, height = 4)
+
+
+```
+
+**S9 Fig. Isolating the effect of *sqst-5* in the zinc response.** **A)** Strain genotypes are shown as colored rectangles (N2: orange, CB4856: blue) in detail for chromosome III (left) and in general for the rest of the chromosomes (right). The dashed vertical line represents the location of *sqst-5* and grey triangles represent *sqst-5* deletions. **B)** Normalized residual median optical density in zinc (median.EXT, x-axis) is plotted as Tukey box plots against strain (y-axis). The N2 strain, which is usually resistant to zinc, was sick in this experiment. Statistical significance of each strain compared to ECA859 is shown above each strain (ns = non-significant (p-value > 0.05); `*`, `**`, `***`, and `***` = significant (p-value < 0.05, 0.01, 0.001, or 0.0001, respectively).
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s10, fig.height = 5, fig.width = 7.5}
+
+##########################################
+#           Figure S10                   #
+#             wi map                     #
+##########################################
+
+WI_sqst5_sv <- read.csv("data/S23_File.csv")
+
+# map
+strainsdel <- WI_sqst5_sv %>%
+    dplyr::filter(CB4856_del == T) %>%
+    dplyr::filter(strain != "CB4856")
+strainsmiss <- WI_sqst5_sv %>%
+    dplyr::filter(is.na(sqst5_sv))
+strainssv <- WI_sqst5_sv %>%
+    dplyr::filter(CB4856_del == F, sqst5_sv == T)
+strainsnodel <- WI_sqst5_sv %>%
+    dplyr::filter(sqst5_sv == F, strain != "N2")
+cb <- WI_sqst5_sv %>%
+    dplyr::filter(strain == "CB4856")
+n2 <- WI_sqst5_sv %>%
+    dplyr::filter(strain == "N2")
+
+#Map of worms
+ggplot2::ggplot(strainsnodel) + 
+    ggplot2::aes(x=as.numeric(longitude), y=as.numeric(latitude)) +
+    ggplot2::borders("world", ylim = c(-60, 90), fill="white", size = 0.1) +
+    ggplot2::geom_point(size=1, color = "black", fill = "grey", shape = 21) +
+    ggplot2::geom_point(data = strainsmiss, size=1, color = "black", fill = "white", shape = 21) +
+    ggplot2::geom_point(data = strainsdel, size = 2, fill = "mediumvioletred", color = "black", shape = 21) +
+    ggplot2::geom_point(data = strainssv, size = 2, fill = "pink", color = "black", shape = 21) +
+    ggplot2::geom_point(data = cb, size=2, fill = "navy", shape = 21, color = "black") +
+    ggplot2::geom_point(data = n2, size=2, fill = "orange", shape = 21, color = "black") +
+    ggrepel::geom_text_repel(data = strainsdel, aes(label = strain), segment.size = 0.2) +
+    ggplot2::theme_void(12) +
+    ggplot2::theme(panel.background = element_rect(fill = "white", color = NA),
+                   panel.grid = element_blank(),
+                   axis.line = element_line(size = 0),
+                   # legend.position = "bottom",
+                   axis.text = element_blank(),
+                   axis.title = element_blank(),
+                   axis.ticks = element_blank())+
+    ggplot2::ylim(-60, 90)
+
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS12_map.png", height = 5, width = 7.5)
+
+
+```
+
+**S10 Fig. Geographical distribution of 328 wild isolates.** Map of wild isolates. Strains are colored by the variation haplotype at *sqst-5* (Wild-type: grey, N2: orange, CB4856: navy, Deletion: magenta, Other putative structural variation: light pink). Strains with the deletion are labeled.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s11, fig.height = 8, fig.width = 7.5}
+
+##########################################
+#           Figure S13                    #
+#             GWAS                       #
+##########################################
+
+# make plots like linkage
+WI_sqst5_sv <- read.csv("data/S23_File.csv")
+gwaspheno <- read.csv("data/S25_File.csv")
+gwasmap <- read.csv("data/S26_File.csv")
+
+tsize <- 12
+
+# plot gwas for all four traits
+i <- 1
+plot_list <- list()
+for(t in c("median.TOF", "median.EXT", "median.norm.EXT", "norm.n")){
+
+    ### plot WI phenos
+    pheno <- gwaspheno %>%
+        dplyr::filter(trait == t) %>%
+        dplyr::left_join(WI_sqst5_sv, by = "strain") %>%
+        tidyr::drop_na(sqst5_sv) %>%
+        dplyr::mutate(norm_pheno = ((phenotype - min(phenotype, na.rm = T)) / (max(phenotype, na.rm = T) - min(phenotype, na.rm = T)))) %>%
+        dplyr::arrange(norm_pheno)
+    
+    pheno$strain <- factor(pheno$strain, levels = unique(pheno$strain))
+    
+    wi_pheno <- pheno %>%
+        dplyr::mutate(strain_fill = dplyr::case_when(strain == "N2" ~ "N2",
+                                                      strain == "CB4856" ~ "CB4856",
+                                                      CB4856_del == T ~ "Deletion",
+                                                      sqst5_sv == T ~ "SV",
+                                                      TRUE ~ "WT")) %>%
+        dplyr::mutate(strain_fill = factor(strain_fill, levels = c("WT", "N2", "CB4856", "Deletion", "SV"))) %>%
+        ggplot2::ggplot(.) +
+        ggplot2::aes(x = strain, y = norm_pheno, fill = strain_fill) +
+        ggplot2::geom_bar(stat = "identity") +
+        ggplot2::scale_fill_manual(values = c("N2" = "orange", "CB4856" = "navy", "WT" = "grey", 
+                                              "Deletion" = "mediumvioletred", "SV" = "pink"),
+                                   guide = guide_legend(direction = 'horizontal')) +
+        theme_bw(tsize) +
+        theme(axis.ticks.x = element_blank(),
+              axis.text.x = element_blank(),
+              # axis.text.x = element_text(angle = 90),
+              panel.grid = element_blank(),
+              axis.title = element_text(face = "bold", color = "black"),
+              axis.text.y = element_text(face = "bold", color = "black"),
+              legend.position = c(0.3, 0.9),
+              # legend.title = element_text(face = "bold"),
+              legend.title = element_blank()) +
+        labs(x = "Strain", y = t)
+
+    # GWAS mapping
+    gwas_map <- gwasmap %>%
+        dplyr::filter(trait == glue::glue("zinc_{t}") & CHROM != "MtDNA") %>%
+        dplyr::distinct(marker, .keep_all = T) %>%
+        ggplot2::ggplot(.) +
+        ggplot2::aes(x = POS/1e6, y = log10p) +
+        ggplot2::scale_color_manual(values = c("0" = "black", "1" = "red", "2" = "hotpink3")) +
+        ggplot2::geom_rect(ggplot2::aes(xmin = startPOS/1e6,    # this is the plot boundary for LD and gene plots
+                                        xmax = endPOS/1e6,    # this is the plot boundary for LD and gene plots
+                                        ymin = 0, 
+                                        ymax = Inf, 
+                                        fill = "skyblue"), 
+                           color = "blue",fill = "skyblue",linetype = 2, alpha=.3)+
+        ggplot2::geom_hline(ggplot2::aes(yintercept = BF), color = "gray", alpha = .75, size = 1) +
+        ggplot2::geom_hline(ggplot2::aes(yintercept = EIGEN_CUTOFF), color = "gray", alpha = .75, size = 1, linetype = 2) +
+        ggplot2::geom_point( ggplot2::aes(color= factor(EIGEN_SIG)) ) +
+        ggplot2::facet_grid( . ~ CHROM, scales = "free_x" , space = "free_x") +
+        ggplot2::theme_bw(12) +
+        ggplot2::theme(
+            axis.text = ggplot2::element_text(color = "black", face = "bold"),
+            axis.title = ggplot2::element_text(face = "bold", color = "black"),
+            strip.text = ggplot2::element_text(face = "bold", color = "black"),
+            plot.title = ggplot2::element_blank(),
+            panel.grid = ggplot2::element_blank(),
+            legend.position = "none",
+            panel.background = ggplot2::element_rect(color = NA, size = 0.6)) +
+        ggplot2::labs(x = "Genomic position (Mb)",
+                      y = expression(-log[10](italic(p))))
+    
+    # pxg from gwas
+    peaks <- gwasmap %>%
+        dplyr::filter(trait == glue::glue("zinc_{t}") & CHROM != "MtDNA") %>%
+        na.omit()
+    if(nrow(peaks) > 0) {
+        pxg <- peaks %>% # probably the na.omit is not needed any more
+            # dplyr::filter(CHROM==QTL_Chrom, peakPOS==QTL_Peak) %>%  
+            dplyr::mutate(value=as.numeric(value),
+                          allele = factor(allele, levels = c(-1,1), labels = c("REF","ALT"))) %>% 
+            dplyr::mutate(norm_pheno = ((value - min(value, na.rm = T)) / (max(value, na.rm = T) - min(value, na.rm = T))),
+                          value = norm_pheno) %>%
+            dplyr::group_by(allele) %>%
+            ggplot()+
+            aes(x = allele, y = value, fill = allele)+
+            geom_jitter(size = 0.5, width = 0.1) +
+            geom_boxplot(alpha = 0.8, outlier.color = NA) +
+            theme_bw(tsize)+
+            scale_fill_manual(values = c("REF" = "grey", "ALT" = "navy")) +
+            ggplot2::facet_grid(~factor(marker, unique(peaks$marker)), scales = "free") + 
+            ggplot2::theme_bw(tsize) + 
+            ggplot2::theme(axis.text.x = ggplot2::element_text(face = "bold", color = "black"), 
+                           axis.text.y = ggplot2::element_text(face = "bold", color = "black"), 
+                           axis.title.x = ggplot2::element_text(face = "bold", color = "black", vjust = -0.3),
+                           axis.title.y = ggplot2::element_text(face = "bold", color = "black"), 
+                           strip.text.x = ggplot2::element_text(face = "bold", color = "black"),
+                           strip.text.y = ggplot2::element_text(face = "bold", color = "black"),
+                           # axis.title.x = element_blank(),
+                           plot.title = ggplot2::element_blank(), 
+                           legend.position = "none", 
+                           panel.grid = element_blank(),
+                           panel.background = ggplot2::element_rect(color = NA, size = 0.6)) +
+            ggplot2::labs(x = "Genotype at QTL", y = t)
+        
+        # cowplot
+        print(cowplot::plot_grid(wi_pheno, gwas_map, pxg, nrow = 3, align = "v", axis = "lr", labels = c("A", "B", "C")))
+    } else {
+        pxg <- ggplot2::ggplot() +
+            ggplot2::theme_bw() +
+            ggplot2::theme(panel.border = element_rect(color = "grey99", size = 0.0001)) + ### THIS IS RIDICULOUS
+            ggplot2::labs(x = " ", y = " ")
+        # cowplot
+       print(cowplot::plot_grid(wi_pheno, gwas_map, pxg, nrow = 3, align = "v", axis = "lr", labels = c("A", "B", "")))
+    }
+    
+    # next plot
+    i <- i + 1
+    cat("\n\n\n")
+    cat("\n\n\\pagebreak\n")
+}
+
+# ggsave(plot_list[[1]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS13-1_gwas.png", width = 7.5, height = 8)
+# ggsave(plot_list[[2]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS13-2_gwas.png", width = 7.5, height = 8)
+# ggsave(plot_list[[3]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS13-3_gwas.png", width = 7.5, height = 8)
+# ggsave(plot_list[[4]], file = "~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS13-4_gwas.png", width = 7.5, height = 8)
+
+
+
+```
+
+**S11 Fig. Genome-wide association (GWA) mapping identifies eight QTL across four traits in response to high zinc.** **A)** Normalized residual phenotype (y-axis) of 81 wild isolates (x-axis) in response to zinc supplementation. Strains are colored by the parental strains N2 (orange) and CB4856 (blue) or by the *sqst-5* variation (Deletion: magenta, other variation: light pink) **B)** GWA results are shown. Genomic position (x-axis) is plotted against the -log10(*p*) value (y-axis) for each SNV. SNVs are colored pink if they pass the genome-wide eigen-decomposition significance threshold designated by the dotted grey line. The solid grey line represents the more stringent Bonferroni significance threshold. The genomic regions of interest that pass the significance threshold are highlighted by blue rectangles. **C)** For each QTL, the Normalized residual phenotype (y-axis) of strains split by genotype at the peak marker (x-axis) are plotted as Tukey box plots. Each point corresponds to a wild isolate strain. Strains with the N2 reference allele are colored grey, and strains with an alternative allele are colored navy.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s12, fig.height = 5, fig.width = 7.5}
+
+##########################################
+#           Figure S12                   #
+#          metal peaks                   #
+##########################################
+
+metal_map <- read.csv("data/S27_File.csv")
+
+# get chromosome lengths
+chr_lens <- data.frame(chr = c("I", "II", "III", "IV", "V", "X"), 
+                       start = rep(1,6), 
+                       end = c(14972282,15173999,13829314,17450860,20914693,17748731),
+                       condition = "zinc",
+                       trait = "norm.n")
+
+# plot all LODs
+metal_map %>%
+    dplyr::mutate(trait = stringr::str_split_fixed(trait, "_", 2)[,2]) %>%
+    na.omit() %>%
+    arrange(chr, ci_l_pos, ci_r_pos) %>%
+    dplyr::mutate(n2res = ifelse(eff_size < 0, "yes", "no")) %>%
+    ggplot2::ggplot()+
+    ggplot2::aes(x=pos/1E6, y=trait)+
+    ggplot2::theme_bw() +
+    viridis::scale_fill_viridis(name = "LOD") + 
+    viridis::scale_color_viridis(name = "LOD") +
+    ggplot2::geom_segment(aes(x = ci_l_pos/1e6, y = trait, xend = ci_r_pos/1e6, yend = trait, color = lod), size = 2, alpha = 1) +
+    ggplot2::geom_segment(data=chr_lens, aes(x =  start/1e6, xend = end/1e6, y = trait, yend=trait), color='transparent', size =0.1) +
+    ggplot2::geom_point(aes(fill = lod, shape = n2res), color = "black",size = 3, alpha = 1)+
+    ggplot2::scale_shape_manual(values = c("yes" = 24, "no" = 25)) +
+    ggplot2::labs(x = "Genomic position (Mb)", y = "") +
+    ggplot2::guides(shape = FALSE) +
+    ggplot2::theme(axis.text.x = element_text(size=10, face="bold", color="black"),
+                   axis.ticks.y = element_blank(),
+                   legend.title = element_text(size = 12, face = "bold"), legend.text = element_text(size = 10),
+                   legend.key.size = unit(.75, "cm"),
+                   panel.grid.major.x = element_line(),
+                   panel.grid.major.y = element_line(),
+                   panel.grid.minor.y = element_blank(),
+                   axis.text.y = element_text(size = 10, face = "bold", color = "black"),
+                   axis.title.x = element_text(size=12, face="bold", color= "black"),
+                   axis.title.y = element_blank(),
+                   strip.text.x = element_text(size=12, face="bold", color="black"),
+                   strip.text.y = element_text(size=12, face="bold", color="black", angle = 0),
+                   # strip.background = element_rect(colour = "black", fill = "white", size = 0.75, linetype = "solid"),
+                   plot.title = element_text(size=12, face="bold")) +
+    ggplot2::facet_grid(factor(condition,
+                               levels = c("zinc", "cadmium", "copper", "nickel")) ~ chr, scales = "free_x", space = "free")
+
+# save
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/figures/FigS12_metalpeaks.png", height = 5, width = 7.5)
+
+
+```
+
+**S12 Fig. Linkage mapping summary for drug-response traits in response to four heavy metals.** Genomic positions (x-axis) of all QTL identified from linkage mapping are shown for each drug-trait (y-axis). Each QTL is plotted as a triangle at the genomic location of the peak marker and a line that represents the 95% confidence interval. QTL with right side up triangles have a negative effect size (N2 allele is resistant), and QTL with upside down triangles have a positive effect size (CB4856 allele is resistant). QTL are colored by the logarithm of the odds (LOD) score, increasing in significance from purple to green to yellow.

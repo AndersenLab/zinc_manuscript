@@ -1,0 +1,40 @@
+CB4856.CP038189.1:172336_173054_reverse_complement      AAAATTGTTCAGCATGACTTTAACAAAGGAAGAAGAGCTAGAGTTTATTCCACAAGAGCG	60
+N2_sqst-5_unspliced_UTR                                 aaaattgttcagcATGACTTTAACAAAAGAAGAAGAGCTGGAGTTTATTCCACAAGAGCG	60
+                                                        *************************** *********** ********************
+CB4856.CP038189.1:172336_173054_reverse_complement      ACGTTTCGATGTTCTGGTTAACGCCCAGAAAACAATTTGTGAAACTAAAGAAAAGAAAGG	120
+N2_sqst-5_unspliced_UTR                                 ACGTCTCGATGTTCTGGTTAACGCCCAGAAAACAATTTGTGAAACTAAAGAAAAGAAAGG	120
+                                                        **** *******************************************************
+CB4856.CP038189.1:172336_173054_reverse_complement      GCGAATAGTTTTTGTGACATTCGCCACAAAATTCGACAAAAAAGTGGTTGAAATTACCTT	180
+N2_sqst-5_unspliced_UTR                                 GCGGATAGTTTTTGTGACATTCGCCACAAAATTCGACAAAAAAGTGGTTGAAATTACCTT	180
+                                                        *** ********************************************************
+CB4856.CP038189.1:172336_173054_reverse_complement      AGATGAAGAGGACCCGCTGAGCCAGTTGTACAAAACAGCCCAGGAAATGTTTCCTTACTT	240
+N2_sqst-5_unspliced_UTR                                 AGATGAAGAGGACCCGCTGAGCCAGTTGTACAAAACAGCCCAGGAAATTTTTCCTTACTT	240
+                                                        ************************************************ ***********
+CB4856.CP038189.1:172336_173054_reverse_complement      CTCATGGCGGATATGTCTTGGTCAGTGATAATAACAGGAAATTTGCTGGATACGATCCTT	300
+N2_sqst-5_unspliced_UTR                                 CTCATGGCGGTTTTGTCTTGgtgagtgataataacaggaatcttgcatgatatcatcctt	300
+                                                        ********** * ********* *****************  ****  ****  ******
+CB4856.CP038189.1:172336_173054_reverse_complement      TTTCAGATGAGCCAACCAATCTCATTGAAGGCTTGTCAAACAAACGCCGAGTTTTTGGTA	360
+N2_sqst-5_unspliced_UTR                                 tttcagATGAGCCAACCAATCTCATTGAAGGCTTGTCAAACAAACGCCGAGTTTTTGGTA	360
+                                                        ************************************************************
+CB4856.CP038189.1:172336_173054_reverse_complement      GTATCAAGCAATCCCGTTTCTACAAGTATCAAGCAATCCCGTTTCTTTCGGTAGTATCAA	420
+N2_sqst-5_unspliced_UTR                                 GTATCAAGCAATCCCGTTTCTACAACTTTCTCTATCTTGTCATCACTCTCTTACCGACTT	420
+                                                        ************************* * **      *     *   *    **    *  
+CB4856.CP038189.1:172336_173054_reverse_complement      GCAATCCCGTTTTCTACA------------------------------------------	438
+N2_sqst-5_unspliced_UTR                                 ATCATCCATTCGACTGTGACGAGTGCAAGGCAGAATGCAACTGGAATAATCGATACAAAT	480
+                                                           ****  *   **                                             
+CB4856.CP038189.1:172336_173054_reverse_complement      ------------------------------------------------------------	438
+N2_sqst-5_unspliced_UTR                                 GCACAATATGCGCCGATTATGACCTTTGTAGGCAGTGTGAGGCAAAAAACTTGCACGCAA	540
+CB4856.CP038189.1:172336_173054_reverse_complement      --------ATGCTTAGGATTGTCTCTAGTGAAACCGAACTACCTAAATATATGTATATGA	490
+N2_sqst-5_unspliced_UTR                                 ATCATGCAATGCTTAGGATTCTCTCTAGTGATACCGAACTACCTAAATATATGTATATGA	600
+                                                                ************ ********** ****************************
+CB4856.CP038189.1:172336_173054_reverse_complement      GTTCACCCAGTTTTGTTTCTGAACACTGTTCAAAATAAATTGTTATATAATATTTTTTTT	550
+N2_sqst-5_unspliced_UTR                                 GTTCACCCAGTTTTGTTTCTGAACACTGTTCAAAATAAattgttatataatataccagcc	660
+                                                        *****************************************************       
+CB4856.CP038189.1:172336_173054_reverse_complement      TTTAAATGTGCATAGCAAACAGGAAAAACAAATGAAAGTTGCGGATGAGCTCAATATTGG	610
+N2_sqst-5_unspliced_UTR                                 gtggaccgcacctccga-------------------------------------------	677
+                                                         *  *  *  * *   *                                           
+CB4856.CP038189.1:172336_173054_reverse_complement      AAATTGGTTAGAACCAAGTAGACACTACGATTTATTGATCAATGTACCATGTTTCAAGTG	670
+N2_sqst-5_unspliced_UTR                                 ------------------------------------------------------------	677
+CB4856.CP038189.1:172336_173054_reverse_complement      AGACTGGTTTGCTCTTTATCTAGTGGAGTGTTAATTGCGCAGCTGGAA	718
+N2_sqst-5_unspliced_UTR                                 ---------c------------gcggccccagacttctggggctgaaa	704
+                                                                              * **      * **  *  **** **

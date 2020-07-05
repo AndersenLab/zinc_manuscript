@@ -1,0 +1,30 @@
+sqst-5             1 MTLTKEEELEFIPQERRLDVLVNAQKTICETKEKKGRIVFVTFATKFDK 
+                     MTLTKEEELEFIPQERR DVLVNAQKTICETKEKKGRIVFVTFATKFDK 
+                     MTLTKEEELEFIPQERRFDVLVNAQKTICETKEKKGRIVFVTFATKFDK 
+CB4856.CP038189 2014 aataagggcgtaccgcctggcgagcaaatgaagaagcagtgatgaatga 
+                     tctcaaaatattcaaggtatttacaactgacaaaaggttttctccataa 
+                     gtaagaagagttaagatcttgtccgaattataagagaattgaccaacca 
+sqst-5            50 KVVEITLDEEDPLSQLYKTAQEIFPYFSWRFCL                 
+                     KVVEITLDEEDPLSQLYKTAQE+FPYFSWR+CL                 
+                     KVVEITLDEEDPLSQLYKTAQEMFPYFSWRICL                 
+CB4856.CP038189 2161 agggaatggggccacttaagcgatcttttcatc                 
+                     attatctaaaactgataaccaattcatcggtgt                 
+                     agtatcatagcggcggcaacgagttccaggatt                 
+sqst-5            83                               EPTNLIEGLSNKRRVFGSI 
+                                                   EPTNLIEGLSNKRRVFGSI 
+                               D:D[gat]            EPTNLIEGLSNKRRVFGSI 
+CB4856.CP038189 2260 GGTCAGTG  Intron 1       CAGATgcaacaggttaaccgtgaa 
+                      <1-----[2261   :   2306]-1>  accattagtcaaggttggt 
+                                                   gactctacgacacattttc 
+sqst-5           103 KQSRFYNFLYLVITLLPTYHPFDCDECKAECNWNNRYKCTICADYDLCR 
+                     KQSRFY +  + +  + +  PF                            
+                     KQSRFYKYQAIPFLSVVSS!PFS-------------------------- 
+CB4856.CP038189 2366 actcttatcgactctggta4ctt                           
+                     aacgtaaaactcttcttcg ctc                           
+                     gactccgtaacgttgaaac gtt                           
+sqst-5           152 QCEAKNLHANHAMLRILSSDTELPKYMYMSSPSFVSEHCSK         
+                                 MLRI+SS+TELPKYMYMSSPSFVSEHCSK         
+                     -----------TMLRIVSSETELPKYMYMSSPSFVSEHCSK         
+CB4856.CP038189 2436            aacaagtagagccatataatcatgtgctta         
+                                cttgttcgacatcaatatgccgttcaagca         
+                                agtgtcttacaatatgtgtacttttactaa 
