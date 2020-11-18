@@ -34,7 +34,8 @@ Link: [Here!](https://journals.plos.org/plosgenetics/article?id=10.1371/journal.
 - **S22 File. SQST-5 protein alignment.** Protein alignment of SQST-5 for N2 and CB4856 
 - **S23 File. Structural variation in *sqst-5* in 328 wild isolates.** List of all 328 wild isolates, their isolation location, and extent of structural variation in *sqst-5* 
 - **S24 File. *sqst-5* phylogenetic tree.** Neighbor-joining tree for all 328 wild isolates using variants near *sqst-5*
-- **S25 File. Wild isolate phenotype data.** Residual phenotypic values for all 81 wild isolates in response to zinc (standard HTA) 
-- **S26 File. GWA mapping results.** GWA mapping significance values for all markers across the genome for all four zinc-response traits
-- **S27 File. Heavy metals linkage mapping results.** Linkage mapping LOD scores at 13,003 genomic markers for all four metal-response traits with the set 2 RIAILs for four heavy metals
+- **S25 File. Tajima’s D for chrIII QTL.** Tajima’s D calculated for a sliding window across the zinc-response interval on chromosome III.
+- **S26 File. Wild isolate phenotype data.** Residual phenotypic values for all 81 wild isolates in response to zinc (standard HTA) 
+- **S27 File. GWA mapping results.** GWA mapping significance values for all markers across the genome for all four zinc-response traits
+- **S28 File. Heavy metals linkage mapping results.** Linkage mapping LOD scores at 13,003 genomic markers for all four metal-response traits with the set 2 RIAILs for four heavy metals
 
