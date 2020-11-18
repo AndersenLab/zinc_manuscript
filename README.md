@@ -2,7 +2,7 @@
 Data, scripts, and figures for zinc *sqst-5* manuscript
 
 ### Manuscript
-Link: XXX.
+Link: [Here!](https://journals.plos.org/plosgenetics/article?id=10.1371/journal.pgen.1008986)
 
 ### Usage
 1. Download git repo
