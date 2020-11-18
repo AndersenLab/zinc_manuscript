@@ -1,4 +1,4 @@
-# zinc_manuscript
+# Natural variation in the sequestosome-related gene, *sqst-5*, underlies zinc homeostasis in *Caenorhabditis elegans*
 Data, scripts, and figures for zinc *sqst-5* manuscript
 
 ### Manuscript
