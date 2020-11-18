@@ -28,9 +28,6 @@ load(glue::glue("{wd}/data/extra_data/eqtl_probes.Rda"))
 load(glue::glue("{wd}/data/extra_data/FileS8_eqtlpheno.Rda"))
 load(glue::glue("{wd}/data/extra_data/gene_ref_flat.Rda"))
 
-
-load("~/Dropbox/AndersenLab/LabFolders/Katie/projects/eQTL_mediation/data/raw/N2xCB4856cross_full2.Rda")
-
 # linkage mapping function 
 plot_lods <- function(map, tsize = 12) {
     map1 <- map %>% 
@@ -446,7 +443,7 @@ cat("\n\n\\pagebreak\n")
 ##########################################
 
 riailpheno <- read.csv(glue::glue("{wd}/data/S3_File.csv"))
-# linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+linkagemapping::load_cross_obj("N2xCB4856cross_full2")
 zincmap <- read.csv(glue::glue("{wd}/data/S4_File.csv"))
 
 tsize <- 12
@@ -628,7 +625,7 @@ cat("\n\n\\pagebreak\n")
 ##########################################
 
 riailpheno <- read.csv(glue::glue("{wd}/data/S3_File.csv"))
-# linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+linkagemapping::load_cross_obj("N2xCB4856cross_full2")
 zincmap <- read.csv(glue::glue("{wd}/data/S4_File.csv"))
 
 # set trait
