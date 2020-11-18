@@ -7,23 +7,29 @@ mainfont: Times New Roman
 ```{r setup, include=FALSE, warning=F, message=F, echo=F,comment="K",results='hide'}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, results = "asis")
 
+options(stringsAsFactors=FALSE)
+
 library(tidyverse)
 library(linkagemapping)
 
 ###############################
 # IMPORTANT!!!!!
 # Set working directory
-setwd("~/Dropbox/AndersenLab/LabFolders/Katie/git/zinc_manuscript/")
+wd <- "~/Dropbox/AndersenLab/LabFolders/Katie/git/zinc_manuscript/"
 ###############################
 
 ##########################################
 #           FUNCTIONS                    #
 ##########################################
 
-load("data/extra_data/gene_annotations.Rda")
-load("data/extra_data/FileS9_eqtlmap.Rda")
-load("data/extra_data/eqtl_probes.Rda")
-load("data/extra_data/FileS8_eqtlpheno.Rda")
+load(glue::glue("{wd}/data/extra_data/gene_annotations.Rda"))
+load(glue::glue("{wd}/data/extra_data/FileS9_eqtlmap.Rda"))
+load(glue::glue("{wd}/data/extra_data/eqtl_probes.Rda"))
+load(glue::glue("{wd}/data/extra_data/FileS8_eqtlpheno.Rda"))
+load(glue::glue("{wd}/data/extra_data/gene_ref_flat.Rda"))
+
+
+load("~/Dropbox/AndersenLab/LabFolders/Katie/projects/eQTL_mediation/data/raw/N2xCB4856cross_full2.Rda")
 
 # linkage mapping function 
 plot_lods <- function(map, tsize = 12) {
@@ -352,7 +358,7 @@ query_genes <- function(region, GO = NULL, strain = "CB4856") {
 ##########################################
 
 # load file s1
-dosepruned <- read.csv("data/S1_File.csv")
+dosepruned <- read.csv(glue::glue("{wd}/data/S1_File.csv"))
 
 # adjust for differences in control with subtraction
 dosepruned_sub <- NULL
@@ -439,9 +445,9 @@ cat("\n\n\\pagebreak\n")
 #            Linkage                     #
 ##########################################
 
-riailpheno <- read.csv("data/S3_File.csv")
-linkagemapping::load_cross_obj("N2xCB4856cross_full2")
-zincmap <- read.csv("data/S4_File.csv")
+riailpheno <- read.csv(glue::glue("{wd}/data/S3_File.csv"))
+# linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+zincmap <- read.csv(glue::glue("{wd}/data/S4_File.csv"))
 
 tsize <- 12
 
@@ -568,7 +574,7 @@ cat("\n\n\\pagebreak\n")
 ##########################################
 
 cowplot::ggdraw() +
-  cowplot::draw_image("figures/extra/FigS3_scantwo.png")
+  cowplot::draw_image(glue::glue("{wd}/figures/extra/FigS3_scantwo.png"))
 
 # riailpheno <- read.csv("data/S3_File.csv")
 # linkagemapping::load_cross_obj("N2xCB4856cross_full2")
@@ -621,9 +627,9 @@ cat("\n\n\\pagebreak\n")
 #         Additive QTL                   #
 ##########################################
 
-riailpheno <- read.csv("data/S3_File.csv")
-linkagemapping::load_cross_obj("N2xCB4856cross_full2")
-zincmap <- read.csv("data/S4_File.csv")
+riailpheno <- read.csv(glue::glue("{wd}/data/S3_File.csv"))
+# linkagemapping::load_cross_obj("N2xCB4856cross_full2")
+zincmap <- read.csv(glue::glue("{wd}/data/S4_File.csv"))
 
 # set trait
 trt <- "median.EXT"
@@ -724,10 +730,10 @@ cat("\n\n\\pagebreak\n")
 trt <- "median.EXT"
 tsize <- 12
 
-NIL_pruned <- read.csv("data/S9_File.csv")
-HTA_stats <- read.csv("data/S10_File.csv")
-nilgeno <- read.csv("data/S8_File.csv")
-zincmap <- read.csv("data/S4_File.csv")
+NIL_pruned <- read.csv(glue::glue("{wd}/data/S9_File.csv"))
+HTA_stats <- read.csv(glue::glue("{wd}/data/S10_File.csv"))
+nil_genotypes <- read.csv(glue::glue("{wd}/data/S8_File.csv"))
+zincmap <- read.csv(glue::glue("{wd}/data/S4_File.csv"))
 
 NIL_pruned <- NIL_pruned %>%
     dplyr::filter(trait == trt) %>%
@@ -918,7 +924,7 @@ cat("\n\n\\pagebreak\n")
 #         zinc V3 dose                   #  
 ##########################################
 
-doseprunedV3 <- read.csv("data/S12_File.csv")
+doseprunedV3 <- read.csv(glue::glue("{wd}/data/S12_File.csv"))
 
 trt <- "median.EXT"    
 tsize <- 12
@@ -1067,9 +1073,9 @@ cat("\n\n\\pagebreak\n")
 #           sqst5 HTA                    # 
 ##########################################
 
-sqst5_pruned <- read.csv("data/S17_File.csv")
-HTA_stats <- read.csv("data/S10_File.csv")
-nilgeno <- read.csv("data/S8_File.csv")
+sqst5_pruned <- read.csv(glue::glue("{wd}/data/S17_File.csv"))
+HTA_stats <- read.csv(glue::glue("{wd}/data/S10_File.csv"))
+nil_genotypes <- read.csv(glue::glue("{wd}/data/S8_File.csv"))
 
 # plot
 trt <- "median.EXT"
@@ -1155,15 +1161,14 @@ cat("\n\n\\pagebreak\n")
 ##########################################
 
 
-sqst5_NIL_pruned <- read.csv("data/S18_File.csv")
-HTA_stats <- read.csv("data/S10_File.csv")
-nilgeno <- read.csv("data/S8_File.csv")
-
+sqst5_NIL_pruned <- read.csv(glue::glue("{wd}/data/S18_File.csv"))
+HTA_stats <- read.csv(glue::glue("{wd}/data/S10_File.csv"))
+nil_genotypes <- read.csv(glue::glue("{wd}/data/S8_File.csv"))
 
 # plot
 trt <- "median.EXT"
 tsize <- 12
-strainset <- rev(c("N2", "CB4856", "ECA859", "ECA2517", "ECA2518"))
+strainset <- rev(c("CB4856", "ECA859", "ECA2517", "ECA2518"))
 
 # regress
 regressed <- easysorter::regress(sqst5_NIL_pruned %>%
@@ -1231,14 +1236,29 @@ cat("\n\n\n")
 cat("\n\n\\pagebreak\n")
 ```
 
-```{r figure_s10, fig.height = 5, fig.width = 7.5}
+```{r figure_s10, fig.height = 6, fit.width = 6}
+
+cowplot::ggdraw() +
+  cowplot::draw_image(glue::glue("{wd}/figures/extra/FigS10_zincworms10x.png"))
+
+
+```
+
+**S10 Fig. High-resolution imaging provides additional evidence for the function of sqst-5 in the nematode zinc response.** Representative images of four strains (N2, CB4856, ECA859, and ECA2517) in response to zinc are shown.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s11, fig.height = 5, fig.width = 7.5}
 
 ##########################################
 #           Figure S10                   #
 #             wi map                     #
 ##########################################
 
-WI_sqst5_sv <- read.csv("data/S23_File.csv")
+WI_sqst5_sv <- read.csv(glue::glue("{wd}/data/S23_File.csv"))
 
 # map
 strainsdel <- WI_sqst5_sv %>%
@@ -1281,14 +1301,42 @@ ggplot2::ggplot(strainsnodel) +
 
 ```
 
-**S10 Fig. Geographical distribution of 328 wild isolates.** Map of wild isolates. Strains are colored by the variation haplotype at *sqst-5* (Wild-type: grey, N2: orange, CB4856: navy, Deletion: magenta, Other putative structural variation: light pink). Strains with the deletion are labeled.
+**S11 Fig. Geographical distribution of 328 wild isolates.** Map of wild isolates. Strains are colored by the variation haplotype at *sqst-5* (Wild-type: grey, N2: orange, CB4856: navy, Deletion: magenta, Other putative structural variation: light pink). Strains with the deletion are labeled.
 
 ```{r}
 cat("\n\n\n")
 cat("\n\n\\pagebreak\n")
 ```
 
-```{r figure_s11, fig.height = 8, fig.width = 7.5}
+```{r, figure_s12, fig.height = 4, fig.width = 6}
+
+read.csv(glue::glue("{wd}/data/S25_File.csv")) %>%
+    dplyr::mutate(pos = (start + end)/2) %>%
+    dplyr::filter(pos > 4664, pos < 597553) %>%
+    ggplot2::ggplot(.) +
+    aes(x = pos/1e6, y = td) +
+    ggplot2::geom_point(size = 1, alpha = 0.75) + 
+    ggplot2::theme_bw(12) + 
+    ggplot2::theme(axis.text = element_text(face = "bold", color = "black"),
+                   axis.title = element_text(face = "bold"),
+                   strip.text = element_text(face = "bold")) + 
+    ggplot2::labs(x = "Genomic position (Mb)",  y = "Tajima's D") +
+    geom_vline(xintercept = 0.146969, color = "red") +
+    scale_y_continuous(limits = c(-2, 2)) +
+    facet_grid(~chrom)
+
+# ggsave("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/manuscript/writing/20201012_reformatting/S1-S14_Figures/S12_Fig.tiff", height = 5, width = 7.5)
+
+```
+
+**S12 Fig. Tajima’s D across the zinc-response confidence interval.** Nucleotide divergence, as measured by Tajima’s D, is shown across the zinc-response confidence interval on chromosome III (III:4,664-597,553). Window size for the calculations was 10 kb with a 1 kb sliding window size. Red vertical line represents the location of *sqst-5*.
+
+```{r}
+cat("\n\n\n")
+cat("\n\n\\pagebreak\n")
+```
+
+```{r figure_s13, fig.height = 8, fig.width = 7.5}
 
 ##########################################
 #           Figure S13                    #
@@ -1296,9 +1344,9 @@ cat("\n\n\\pagebreak\n")
 ##########################################
 
 # make plots like linkage
-WI_sqst5_sv <- read.csv("data/S23_File.csv")
-gwaspheno <- read.csv("data/S25_File.csv")
-gwasmap <- read.csv("data/S26_File.csv")
+WI_sqst5_sv <- read.csv(glue::glue("{wd}/data/S23_File.csv"))
+gwaspheno <- read.csv(glue::glue("{wd}/data/S26_File.csv"))
+gwasmap <- read.csv(glue::glue("{wd}/data/S27_File.csv"))
 
 tsize <- 12
 
@@ -1430,21 +1478,21 @@ for(t in c("median.TOF", "median.EXT", "median.norm.EXT", "norm.n")){
 
 ```
 
-**S11 Fig. Genome-wide association (GWA) mapping identifies eight QTL across four traits in response to high zinc.** **A)** Normalized residual phenotype (y-axis) of 81 wild isolates (x-axis) in response to zinc supplementation. Strains are colored by the parental strains N2 (orange) and CB4856 (blue) or by the *sqst-5* variation (Deletion: magenta, other variation: light pink) **B)** GWA results are shown. Genomic position (x-axis) is plotted against the -log10(*p*) value (y-axis) for each SNV. SNVs are colored pink if they pass the genome-wide eigen-decomposition significance threshold designated by the dotted grey line. The solid grey line represents the more stringent Bonferroni significance threshold. The genomic regions of interest that pass the significance threshold are highlighted by blue rectangles. **C)** For each QTL, the Normalized residual phenotype (y-axis) of strains split by genotype at the peak marker (x-axis) are plotted as Tukey box plots. Each point corresponds to a wild isolate strain. Strains with the N2 reference allele are colored grey, and strains with an alternative allele are colored navy.
+**S13 Fig. Genome-wide association (GWA) mapping identifies eight QTL across four traits in response to high zinc.** **A)** Normalized residual phenotype (y-axis) of 81 wild isolates (x-axis) in response to zinc supplementation. Strains are colored by the parental strains N2 (orange) and CB4856 (blue) or by the *sqst-5* variation (Deletion: magenta, other variation: light pink) **B)** GWA results are shown. Genomic position (x-axis) is plotted against the -log10(*p*) value (y-axis) for each SNV. SNVs are colored pink if they pass the genome-wide eigen-decomposition significance threshold designated by the dotted grey line. The solid grey line represents the more stringent Bonferroni significance threshold. The genomic regions of interest that pass the significance threshold are highlighted by blue rectangles. **C)** For each QTL, the Normalized residual phenotype (y-axis) of strains split by genotype at the peak marker (x-axis) are plotted as Tukey box plots. Each point corresponds to a wild isolate strain. Strains with the N2 reference allele are colored grey, and strains with an alternative allele are colored navy.
 
 ```{r}
 cat("\n\n\n")
 cat("\n\n\\pagebreak\n")
 ```
 
-```{r figure_s12, fig.height = 5, fig.width = 7.5}
+```{r figure_s14, fig.height = 5, fig.width = 7.5}
 
 ##########################################
-#           Figure S12                   #
+#           Figure S14                   #
 #          metal peaks                   #
 ##########################################
 
-metal_map <- read.csv("data/S27_File.csv")
+metal_map <- read.csv(glue::glue("{wd}/data/S28_File.csv"))
 
 # get chromosome lengths
 chr_lens <- data.frame(chr = c("I", "II", "III", "IV", "V", "X"), 
@@ -1493,4 +1541,4 @@ metal_map %>%
 
 ```
 
-**S12 Fig. Linkage mapping summary for drug-response traits in response to four heavy metals.** Genomic positions (x-axis) of all QTL identified from linkage mapping are shown for each drug-trait (y-axis). Each QTL is plotted as a triangle at the genomic location of the peak marker and a line that represents the 95% confidence interval. QTL with right side up triangles have a negative effect size (N2 allele is resistant), and QTL with upside down triangles have a positive effect size (CB4856 allele is resistant). QTL are colored by the logarithm of the odds (LOD) score, increasing in significance from purple to green to yellow.
+**S14 Fig. Linkage mapping summary for drug-response traits in response to four heavy metals.** Genomic positions (x-axis) of all QTL identified from linkage mapping are shown for each drug-trait (y-axis). Each QTL is plotted as a triangle at the genomic location of the peak marker and a line that represents the 95% confidence interval. QTL with right side up triangles have a negative effect size (N2 allele is resistant), and QTL with upside down triangles have a positive effect size (CB4856 allele is resistant). QTL are colored by the logarithm of the odds (LOD) score, increasing in significance from purple to green to yellow.

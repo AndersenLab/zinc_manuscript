@@ -6,15 +6,18 @@
 setwd("~/Dropbox/AndersenLab/LabFolders/Katie/git/zinc_manuscript/")
 ###############################
 
+options(stringsAsFactors=FALSE)
+
 library(tidyverse)
 library(linkagemapping)
 library(cegwas2)
 library(ggtree)
 library(phangorn)
 library(ape)
-library(grid)
-library(gridExtra)
+# library(grid)
+# library(gridExtra)
 library(ggplotify)
+library(easysorter)
 
 tsize <- 12
 
@@ -445,7 +448,7 @@ ggsave("figures/Fig1_riail_lod.png", width = 7.5, height = 8)
 zincmap <- read.csv("data/S4_File.csv")
 chrVbreakup <- read.csv("data/S11_File.csv")
 HTA_stats <- read.csv("data/S10_File.csv")
-nilgeno <- read.csv("data/S8_File.csv")
+nil_genotypes <- read.csv("data/S8_File.csv")
 
 # qtl peaks
 peaks <- zincmap %>%
@@ -635,12 +638,12 @@ chrV1_genes <- query_genes("V:9620518-10511995", "zinc")
 
 dominance_pruned <- read.csv("data/S13_File.csv")
 HTA_stats <- read.csv("data/S10_File.csv")
-nilgeno <- read.csv("data/S8_File.csv")
+nil_genotypes <- read.csv("data/S8_File.csv")
 
 # plot
 trt <- "median.EXT"
 tsize <- 12
-strainset <- rev(c("N/N", "C/C", "838/838", "N/838", "859/859","C/859")) 
+strainset <- rev(c("C/C", "838/838", "N/838", "859/859","C/859")) 
 
 # regress
 regressed <- easysorter::regress(dominance_pruned %>% dplyr::filter(strain %in% strainset)) %>%
@@ -651,7 +654,7 @@ regressed <- easysorter::regress(dominance_pruned %>% dplyr::filter(strain %in% 
 
 # stats
 stats <- HTA_stats %>%
-    dplyr::filter(comparison %in% c("N/N-838/838", "N/N-N/838", "C/C-859/859", "C/C-C/859"),
+    dplyr::filter(comparison %in% c("C/C-859/859", "C/C-C/859"),
                   experiment == "dominance",
                   trait == trt) %>%
     dplyr::select(condition, trait, comparison, pval = adj.p.value) %>%
@@ -677,7 +680,7 @@ stats2 <- HTA_stats %>%
                                              comparison == "C/859-859/859" ~ "C/859"),
                   strain2 = dplyr::case_when(comparison == "N/838-838/838" ~ "838/838",
                                              comparison == "C/859-859/859" ~ "859/859"),
-                  yval = ifelse(comparison == "N/838-838/838", 1.2, 0.8),
+                  yval = ifelse(comparison == "N/838-838/838", 1.1, 0.8),
                   sig = dplyr::case_when(pval < 0.0001 ~ "****",
                                          pval < 0.001 ~ "***",
                                          pval < 0.01 ~ "**",
@@ -710,7 +713,7 @@ pheno <- regressed %>%
     ggplot2::theme_bw(tsize) +
     theme(axis.text = element_text(face="bold", color="black"),
           axis.text.y = element_blank(),
-          axis.ticks = element_blank(),
+          axis.ticks.y = element_blank(),
           axis.title.y = element_text(color = NA),
           strip.text = element_text(face = "bold", color = "black"),
           plot.title = element_text(face="bold"),
@@ -742,7 +745,7 @@ df <- data.frame(strain = strainset) %>%
                                              strain == "859/859" ~ "ECA859/\nECA859",
                                              strain == "N/838" ~ "N2/\nECA838",
                                              strain == "C/859" ~ "CB4856/\nECA859"))
-df <- cbind(df, ystrain = c(2, 1, 1, 3, 3, 4, 4, 6, 5, 5, 5, 5, 7, 7, 7, 7, 8, 8, 8, 8, 9, 10, 11, 12))
+df <- cbind(df, ystrain = c(2, 1, 1, 3, 3, 4, 4, 6, 5, 5, 5, 5, 7, 7, 7, 7, 8, 8, 8, 8, 9, 10))
 
 
 chrIII_plot <- df %>%
@@ -772,7 +775,7 @@ elements <- ggplot2::ggplotGrob(chrIII_plot)
 panels = subset(elements$layout, grepl("axis", elements$layout$name), t:r)
 chrIII_plot2 <- gtable::gtable_add_grob(elements, 
                                         grid::rectGrob(gp = grid::gpar(col = "black", lwd = 1, fill = NA)),
-                                        t = 8, l = 6, b = 18, r = 7)
+                                        t = 8, l = 6, b = 16, r = 7)
 chrIII_plot3 <- ggplotify::as.ggplot(chrIII_plot2)
 
 # background genome
@@ -807,13 +810,14 @@ elements <- ggplot2::ggplotGrob(genome_plot)
 panels = subset(elements$layout, grepl("axis", elements$layout$name), t:r)
 genome_plot2 <- gtable::gtable_add_grob(elements, 
                                         grid::rectGrob(gp = grid::gpar(col = "black", lwd = 1, fill = NA)),
-                                        t = 8, l = 6, b = 18, r = 7)
+                                        t = 8, l = 6, b = 16, r = 7)
 genome_plot3 <- ggplotify::as.ggplot(genome_plot2)
 
 
 test1 <- cowplot::plot_grid(chrIII_plot3, genome_plot3, ncol = 2, rel_widths = c(3.25, 1), labels = c("A", ""))
 
 cowplot::plot_grid(test1, pheno, ncol = 2, rel_widths = c(4, 4.5), labels = c("", "B"))
+
 ggsave("figures/Fig3_dominance.png", width = 7.5, height = 5)
 
 
@@ -828,8 +832,6 @@ chrIII_genes <- query_genes("III:4664-597553", "zinc")
 #           Figure 4                     #
 #          sqst5 eQTL                    #
 ##########################################
-
-tsize <- 12
 
 # ver-2 probe: A_12_P104472
 sqst5_mediation <- read.csv("data/S16_File.csv")
@@ -908,11 +910,10 @@ ggsave("figures/Fig4_eqtlmediation.png", width = 7.5, height = 5)
 # load file
 sqst5_hemi_pruned <- read.csv("data/S19_File.csv")
 HTA_stats <- read.csv("data/S10_File.csv")
-nilgeno <- read.csv("data/S8_File.csv")
+nil_genotypes <- read.csv("data/S8_File.csv")
 
 # trait
 trt <- "median.EXT"
-tsize <- 12
 
 strainset <- rev(unique(regressed$strain))
 
@@ -1120,7 +1121,6 @@ tree <- ape::read.tree("~/Dropbox/AndersenLab/LabFolders/Katie/projects/zinc/man
 
 # gene model
 sqst5_N2 <- data.frame(starts = c(147608,147314), ends = c(147361, 146983), strain = "N2", txstart = 147608, txend = 146983)
-# sqst5_CB <- data.frame(starts = c(147608,147314, 147186), ends = c(147361, 147076, 146983), strain = "CB", txstart = 147608, txend = 146983)
 
 introns_N2 <- data.frame(starts = c(147361), ends = c(147314)) %>%
     dplyr::mutate(midpoint = ((ends - starts) / 2) + starts)
@@ -1199,10 +1199,8 @@ ggsave("figures/Fig6_phylo.png", height = 5, width = 7.5)
 
 # make plots like linkage
 WI_sqst5_sv <- read.csv("data/S23_File.csv")
-gwaspheno <- read.csv("data/S25_File.csv")
-gwasmap <- read.csv("data/S26_File.csv")
-
-tsize <- 12
+gwaspheno <- read.csv("data/S26_File.csv")
+gwasmap <- read.csv("data/S27_File.csv")
 
 # plot gwas for median.norm.ext
 t <- "median.norm.EXT"
@@ -1233,12 +1231,10 @@ wi_pheno <- pheno %>%
     theme_bw(tsize) +
     theme(axis.ticks.x = element_blank(),
           axis.text.x = element_blank(),
-          # axis.text.x = element_text(angle = 90),
           panel.grid = element_blank(),
           axis.title = element_text(face = "bold", color = "black"),
           axis.text.y = element_text(face = "bold", color = "black"),
           legend.position = c(0.35, 0.9),
-          # legend.title = element_text(face = "bold"),
           legend.title = element_blank()) +
     labs(x = "Strain", y = t)
 
@@ -1277,7 +1273,6 @@ peaks <- gwasmap %>%
     na.omit()
 
 pxg <- peaks %>% # probably the na.omit is not needed any more
-    # dplyr::filter(CHROM==QTL_Chrom, peakPOS==QTL_Peak) %>%  
     dplyr::mutate(value=as.numeric(value),
                   allele = factor(allele, levels = c(-1,1), labels = c("REF","ALT"))) %>% 
     dplyr::mutate(norm_pheno = ((value - min(value, na.rm = T)) / (max(value, na.rm = T) - min(value, na.rm = T))),
@@ -1296,7 +1291,6 @@ pxg <- peaks %>% # probably the na.omit is not needed any more
                    axis.title.y = ggplot2::element_text(face = "bold", color = "black"), 
                    strip.text.x = ggplot2::element_text(face = "bold", color = "black"),
                    strip.text.y = ggplot2::element_text(face = "bold", color = "black"),
-                   # axis.title.x = element_blank(),
                    plot.title = ggplot2::element_blank(), 
                    legend.position = "none", 
                    panel.grid = element_blank(),
