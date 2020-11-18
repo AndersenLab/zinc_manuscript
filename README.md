@@ -6,8 +6,13 @@ Link: [Here!](https://journals.plos.org/plosgenetics/article?id=10.1371/journal.
 
 ### Usage
 1. Download git repo
-2. Set working directory at top of script (!!!!)
-3. Run script
+2. Install necessary packages (*tidyverse, linkagemapping, cegwas2, ggtree, phangorn, ape, grid, gridExtra, ggplotify*)
+3. Set working directory at top of script (!!!!)
+4. Run script
+
+### Special Package Installs
+- `linkagemapping` can be found [here](https://github.com/AndersenLab/linkagemapping) and installed with `devtools::install_github("AndersenLab/linkagemapping")`
+- `cegwas2` can be found [here](https://github.com/AndersenLab/cegwas2) and installed with `devtools::install_github("AndersenLab/cegwas2")`
 
 ### Shiny
 As part of this manuscript, I developed and published an R Shiny web application that can be run to analyze all the NIL phenotype data from this manuscript. A link to its github page can be found [here](https://github.com/katiesevans/finemap_NIL) and a link to the application can be found [here](https://katiesevans9.shinyapps.io/QTL_NIL/)!
